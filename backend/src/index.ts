@@ -1,17 +1,18 @@
-import fastify from 'fastify'
+import createServer from './app';
 
-const server = fastify({
-  logger: true
-})
+const FASTIFY_PORT = 4000;
 
 const start = async (): Promise<void> => {
   try {
-    await server.listen({ port: 3000, host: '0.0.0.0' })
-    server.log.info('Server listening on http://localhost:3000')
+    const server = await createServer();
+    await server.listen({ port: FASTIFY_PORT, host: '0.0.0.0' });
+    server.log.info(
+      `🚀 Fastify server running on http://localhost:${FASTIFY_PORT}`
+    );
   } catch (err) {
-    server.log.error(err)
-    process.exit(1)
+    console.error(err);
+    process.exit(1);
   }
-}
+};
 
-start()
+start();
