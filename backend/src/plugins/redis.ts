@@ -11,8 +11,7 @@ async function redis(fastify: FastifyInstance) {
 
   fastify.register(fastifyRedis, {
     url: REDIS_URL + '?family=0',
-    connectTimeout: 5000,
-    lazyConnect: true,
+    connectTimeout: 10000,
     tls: {
       rejectUnauthorized: false,
     },
