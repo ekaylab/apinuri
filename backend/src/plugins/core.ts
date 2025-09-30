@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyPluginOptions } from 'fastify';
+import {FastifyInstance} from 'fastify';
 import Sensible from '@fastify/sensible';
 import Cors from '@fastify/cors';
 import UnderPressure from '@fastify/under-pressure';
@@ -7,7 +7,6 @@ const allowedOrigins = ['http://localhost:3000', 'https://apinuri.com'];
 
 export default async function corePlugin(
   fastify: FastifyInstance,
-  opts: FastifyPluginOptions
 ) {
   await fastify.register(Sensible);
 

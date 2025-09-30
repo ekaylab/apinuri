@@ -72,14 +72,18 @@ export default async function createServer() {
         default:
           process.env.NODE_ENV === 'development'
             ? 'http://localhost:4000'
-            : 'https://api2.smartel.kr',
+            : 'https://api.apinuri.com',
       }),
       HOME_URL: Type.String({
         default:
           process.env.NODE_ENV === 'development'
             ? 'http://localhost:3000'
-            : 'https://smartel.kr',
+            : 'https://apinuri.com',
       }),
+      DATABASE_URL: Type.String(),
+      DATABASE_PASSWORD: Type.String(),
+      REDIS_HOST: Type.String(),
+      REDIS_PORT: Type.String(),
     }),
     dotenv: process.env.NODE_ENV !== 'production',
     data: process.env,
