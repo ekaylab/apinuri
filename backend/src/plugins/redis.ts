@@ -5,22 +5,12 @@ import { scanAndDeleteKeys } from '@/utils/redis-helper';
 import assert from 'assert';
 
 async function redis(fastify: FastifyInstance) {
-  const REDIS_HOST = fastify.config.REDISHOST;
-  const REDIS_PORT = fastify.config.REDISPORT;
-  const REDIS_PASSWORD = fastify.config.REDISPASSWORD;
+  const REDIS_URL = fastify.config.REDIS_URL;
 
-  assert(REDIS_HOST, 'REDIS_HOST is required');
-  assert(REDIS_PASSWORD, 'REDIS_PASSWORD is required');
-
-  fastify.log.info(`Redis confighost:${REDIS_HOST}`);
-  fastify.log.info(`Redis configport:${REDIS_PORT}`);
-  fastify.log.info(`Redis configpw:${REDIS_PASSWORD}`);
+  assert(REDIS_URL, 'REDIS_URL is required');
 
   fastify.register(fastifyRedis, {
-    host: REDIS_HOST,
-    port: parseInt(REDIS_PORT || '6379'),
-    password: REDIS_PASSWORD,
-    family: 0,
+    url: REDIS_URL + '?family=0',
     connectTimeout: 10000,
     retryStrategy: times => {
       if (times > 10) return null;

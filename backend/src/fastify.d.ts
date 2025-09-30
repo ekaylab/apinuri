@@ -33,9 +33,7 @@ declare module 'fastify' {
       HOME_URL: string;
       BASE_URL: string;
       DATABASE_URL: string;
-      REDISHOST: string;
-      REDISPORT: string;
-      REDISPASSWORD: string;
+      REDIS_URL: string;
     };
     redis: Redis;
     redisScanAndDelete: (
