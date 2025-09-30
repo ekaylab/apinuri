@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "watch": "tsc --watch --preserveWatchOutput --pretty",
-    "build": "npm run typecheck && swc src -d dist",
+    "build": "npm run typecheck && swc src -d dist --copy-files && tsc-alias -p tsconfig.json && cp -r public dist/public",
     "typecheck": "tsc --noEmit",
     "start": "node dist/src/index.js",
     "dev": "cross-env NODE_ENV=development tsx watch src/index.ts"
