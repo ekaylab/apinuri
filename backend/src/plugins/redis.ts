@@ -12,6 +12,10 @@ async function redis(fastify: FastifyInstance) {
   assert(REDIS_HOST, 'REDIS_HOST is required');
   assert(REDIS_PASSWORD, 'REDIS_PASSWORD is required');
 
+  fastify.log.info(`Redis confighost:${REDIS_HOST}`);
+  fastify.log.info(`Redis configport:${REDIS_PORT}`);
+  fastify.log.info(`Redis configpw:${REDIS_PASSWORD}`);
+
   fastify.register(fastifyRedis, {
     host: REDIS_HOST,
     port: parseInt(REDIS_PORT || '6379'),
