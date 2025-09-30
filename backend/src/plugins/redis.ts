@@ -22,9 +22,6 @@ async function redis(fastify: FastifyInstance) {
     password: REDIS_PASSWORD,
     family: 0,
     connectTimeout: 10000,
-    tls: {
-      rejectUnauthorized: false,
-    },
     retryStrategy: times => {
       if (times > 10) return null;
       return Math.min(times * 100, 3000);
