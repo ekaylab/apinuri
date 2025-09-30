@@ -83,7 +83,7 @@ export default async function createServer() {
       DATABASE_URL: Type.String(),
       REDISHOST: Type.String(),
       REDISPORT: Type.String(),
-      REDIS_PASSWORD: Type.String(),
+      REDISPASSWORD: Type.String(),
     }),
     dotenv: process.env.NODE_ENV !== 'production',
     data: process.env,

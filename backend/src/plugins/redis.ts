@@ -7,7 +7,7 @@ import assert from 'assert';
 async function redis(fastify: FastifyInstance) {
   const REDIS_HOST = fastify.config.REDISHOST;
   const REDIS_PORT = fastify.config.REDISPORT;
-  const REDIS_PASSWORD = fastify.config.REDIS_PASSWORD;
+  const REDIS_PASSWORD = fastify.config.REDISPASSWORD;
 
   assert(REDIS_HOST, 'REDIS_HOST is required');
   assert(REDIS_PASSWORD, 'REDIS_PASSWORD is required');
