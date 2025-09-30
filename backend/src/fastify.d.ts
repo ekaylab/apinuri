@@ -1,5 +1,5 @@
 import 'fastify';
-import {DB} from '@/plugins/db';
+import { DB } from '@/plugins/db';
 import Redis from 'ioredis';
 
 interface User {
@@ -33,10 +33,15 @@ declare module 'fastify' {
       HOME_URL: string;
       BASE_URL: string;
       DATABASE_URL: string;
-      REDIS_URL: string;
+      REDISHOST: string;
+      REDISPORT: string;
+      REDIS_PASSWORD: string;
     };
     redis: Redis;
-    redisScanAndDelete: (pattern: string, batchSize?: number) => Promise<number>;
+    redisScanAndDelete: (
+      pattern: string,
+      batchSize?: number
+    ) => Promise<number>;
     db: DB;
   }
 }
