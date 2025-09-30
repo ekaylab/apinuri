@@ -10,7 +10,7 @@ async function redis(fastify: FastifyInstance) {
   assert(REDIS_URL, 'REDIS_URL is required');
 
   fastify.register(fastifyRedis, {
-    url: REDIS_URL,
+    url: REDIS_URL + '?family=0',
     connectTimeout: 5000,
     lazyConnect: true,
     tls: {
