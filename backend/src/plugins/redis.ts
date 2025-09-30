@@ -5,14 +5,12 @@ import { scanAndDeleteKeys } from '@/utils/redis-helper';
 import assert from 'assert';
 
 async function redis(fastify: FastifyInstance) {
-  const REDIS_HOST = fastify.config.REDIS_HOST
-  const REDIS_PORT = fastify.config.REDIS_PORT
+  const REDIS_URL = fastify.config.REDIS_URL;
 
-  assert(REDIS_HOST, 'REDIS_HOST is required');
+  assert(REDIS_URL, 'REDIS_URL is required');
 
   fastify.register(fastifyRedis, {
-    host: REDIS_HOST,
-    port: parseInt(REDIS_PORT || '6379'),
+    url: REDIS_URL,
     connectTimeout: 5000,
     lazyConnect: true,
     tls: {

@@ -33,9 +33,7 @@ declare module 'fastify' {
       HOME_URL: string;
       BASE_URL: string;
       DATABASE_URL: string;
-      DATABASE_PASSWORD: string;
-      REDIS_HOST: string;
-      REDIS_PORT: string;
+      REDIS_URL: string;
     };
     redis: Redis;
     redisScanAndDelete: (pattern: string, batchSize?: number) => Promise<number>;
