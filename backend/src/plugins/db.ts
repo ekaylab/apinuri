@@ -4,8 +4,7 @@ import { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import assert from 'assert';
 import { sql } from 'drizzle-orm';
-
-const schema = {} as const;
+import * as schema from '@/models';
 
 export type DB = ReturnType<typeof drizzle<typeof schema>>;
 
