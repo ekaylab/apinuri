@@ -1,18 +1,43 @@
-import createServer from './app';
+import app from './app.ts';
+import { initializeDatabase } from '@/lib/db';
+import { initializeRedis } from '@/lib/redis';
 
-const FASTIFY_PORT = 4000;
+const PORT = 4000;
 
-const start = async (): Promise<void> => {
-  try {
-    const server = await createServer();
-    await server.listen({ port: FASTIFY_PORT, host: '0.0.0.0' });
-    server.log.info(
-      `🚀 Fastify server running on http://localhost:${FASTIFY_PORT}`
-    );
-  } catch (err) {
-    console.error(err);
-    process.exit(1);
-  }
-};
+// Initialize connections
+const databaseUrl = Deno.env.get('DATABASE_URL');
+const redisUrl = Deno.env.get('REDIS_URL');
+const nodeEnv = Deno.env.get('NODE_ENV') || 'development';
 
-start();
+if (!databaseUrl) {
+  console.error('DATABASE_URL environment variable is required');
+  Deno.exit(1);
+}
+
+if (!redisUrl) {
+  console.error('REDIS_URL environment variable is required');
+  Deno.exit(1);
+}
+
+try {
+  // Parse Redis URL
+  const redisUrlObj = new URL(redisUrl);
+  const redisHost = redisUrlObj.hostname;
+  const redisPort = parseInt(redisUrlObj.port || '6379', 10);
+
+  // Initialize database and Redis
+  await initializeDatabase(databaseUrl, nodeEnv);
+  await initializeRedis(redisHost, redisPort);
+
+  console.log(`🚀 Hono server running on http://localhost:${PORT}`);
+  console.log(`Environment: ${nodeEnv}`);
+
+  Deno.serve({
+    fetch: app.fetch,
+    port: PORT,
+    hostname: '0.0.0.0',
+  });
+} catch (err) {
+  console.error('Failed to start server:', err);
+  Deno.exit(1);
+}

@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "allowJs": false,
+    "lib": ["deno.window"],
+    "types": ["npm:@types/node"]
+  },
+  "imports": {
+    "@/": "./src/",
+    "@hono/hono": "jsr:@hono/hono@^4.9.10",
+    "@hono/hono/": "jsr:@hono/hono@^4.9.10/",
+    "@hono/zod-openapi": "jsr:@hono/zod-openapi@^0.17",
+    "zod": "npm:zod@^3.24",
+    "drizzle-orm": "npm:drizzle-orm@^0.44.5",
+    "drizzle-orm/": "npm:drizzle-orm@^0.44.5/",
+    "postgres": "npm:postgres@^3.4.7",
+    "redis": "jsr:@iuioiua/redis@^0.3",
+    "passport": "npm:passport@^0.7.0",
+    "passport-github2": "npm:passport-github2@^0.1.12",
+    "dayjs": "npm:dayjs@^1.11.18",
+    "uuid/": "jsr:@std/uuid@^1/"
+  },
+  "tasks": {
+    "dev": "deno run --env --allow-net --allow-env --allow-read --allow-sys --watch src/index.ts",
+    "start": "deno run --env --allow-net --allow-env --allow-read --allow-sys src/index.ts"
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": true,
+    "proseWrap": "preserve"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "nodeModulesDir": "auto"
+}
