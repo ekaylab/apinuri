@@ -6,6 +6,8 @@ let redisClient: Redis | null = null;
 export async function initializeRedis(host: string, port: number, password?: string): Promise<Redis> {
   if (redisClient) return redisClient;
 
+  console.log(`Attempting to connect to Redis at ${host}:${port}`);
+
   const maxRetries = 10;
   const retryDelay = 2000; // 2 seconds between retries
 
@@ -15,16 +17,24 @@ export async function initializeRedis(host: string, port: number, password?: str
       port,
       password,
       lazyConnect: true,
+      enableOfflineQueue: false,
+    });
+
+    // Add error handler to catch connection errors
+    redisClient.on('error', (err) => {
+      console.error('Redis connection error:', err.message);
     });
 
     try {
       await redisClient.connect();
       await redisClient.ping();
-      console.log('Connected to Redis');
+      console.log('Connected to Redis successfully');
       return redisClient;
     } catch (error: any) {
+      console.error(`Redis connection attempt ${attempt} failed:`, error.message, error.code);
+
       if (attempt < maxRetries) {
-        console.log(`Redis connection failed (attempt ${attempt}/${maxRetries}). Retrying in ${retryDelay}ms...`);
+        console.log(`Retrying in ${retryDelay}ms...`);
         await new Promise(resolve => setTimeout(resolve, retryDelay));
 
         // Clean up failed connection attempt
@@ -35,7 +45,7 @@ export async function initializeRedis(host: string, port: number, password?: str
           redisClient = null;
         }
       } else {
-        console.error(`Redis connection test failed: ${error.message}`);
+        console.error(`Redis connection test failed after ${maxRetries} attempts`);
         throw error;
       }
     }
