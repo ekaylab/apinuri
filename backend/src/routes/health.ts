@@ -2,7 +2,11 @@ import { FastifyInstance } from 'fastify';
 import { sql } from 'drizzle-orm';
 
 export default async function controller(fastify: FastifyInstance) {
-  fastify.get('/health', async function (_request, reply) {
+  fastify.get('/health', {
+    schema: {
+      hide: true,
+    },
+  }, async function (_request, reply) {
     try {
       await fastify.db.execute(sql`SELECT 1`);
       const memoryUsage = process.memoryUsage();

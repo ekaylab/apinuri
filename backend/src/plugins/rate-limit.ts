@@ -49,10 +49,12 @@ async function rateLimit(fastify: FastifyInstance) {
       );
     },
     keyGenerator: function (request) {
+      const apiKey = request.headers['x-api-key'];
       const ip =
-        request.headers['x-forwarded-for'] || request.headers['x-real-ip'];
-      const path = request.url;
-      return `${ip}:${path}`;
+        request.headers['x-forwarded-for'] || request.headers['x-real-ip'] || request.ip;
+
+      // Use API key if available, otherwise use IP
+      return apiKey ? `apikey:${apiKey}` : `ip:${ip}`;
     },
     nameSpace: 'rate-limit:',
     timeWindow: '1 minute',
