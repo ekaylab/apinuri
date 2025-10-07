@@ -1,44 +1,18 @@
-import app from './app';
-import { initializeDatabase } from '@/lib/db';
-import { initializeRedis } from '@/lib/redis';
+import createServer from './app';
 
-const PORT = 4000;
+const FASTIFY_PORT = 4000;
 
-const databaseUrl = process.env.DATABASE_URL;
-const redisUrl = process.env.REDIS_URL;
-const nodeEnv = process.env.NODE_ENV || 'development';
+const start = async (): Promise<void> => {
+  try {
+    const server = await createServer();
+    await server.listen({ port: FASTIFY_PORT, host: '0.0.0.0' });
+    server.log.info(
+        `🚀 Fastify server running on http://localhost:${FASTIFY_PORT}`
+    );
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
+};
 
-console.log('redisUrl', redisUrl);
-
-if (!databaseUrl) {
-  console.error('DATABASE_URL environment variable is required');
-  process.exit(1);
-}
-
-if (!redisUrl) {
-  console.error('REDIS_URL environment variable is required');
-  process.exit(1);
-}
-
-try {
-  // Parse Redis URL
-  const redisUrlObj = new URL(redisUrl);
-  const redisHost = redisUrlObj.hostname;
-  const redisPort = parseInt(redisUrlObj.port || '6379', 10);
-  const redisPassword = redisUrlObj.password || undefined;
-
-  await initializeDatabase(databaseUrl, nodeEnv);
-  await initializeRedis(redisHost, redisPort, redisPassword);
-
-  console.log(`🚀 Hono server running on http://localhost:${PORT}`);
-  console.log(`Environment: ${nodeEnv}`);
-
-  Bun.serve({
-    fetch: app.fetch,
-    port: PORT,
-    hostname: '0.0.0.0',
-  });
-} catch (err) {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-}
+start();
