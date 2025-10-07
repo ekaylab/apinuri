@@ -13,7 +13,7 @@ health.get('/', async (c) => {
       const redis = getRedis();
       await redis.ping();
 
-      const memoryUsage = Deno.memoryUsage();
+      const memoryUsage = process.memoryUsage();
       const rssInMB = Math.round(memoryUsage.rss / 1024 / 1024);
       const heapUsedInMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
 

@@ -1,13 +1,13 @@
-import { Strategy as GitHubStrategy, Profile as GitHubProfile } from 'passport-github2';
-import { and, eq } from 'drizzle-orm';
-import { users, userIdentities } from '@/models';
-import { getDatabase } from '@/lib/db';
-import { getRedis } from '@/lib/redis';
-import type { MiddlewareHandler, Context } from 'hono';
-import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
-import { v4 } from 'uuid/v4';
+import {Profile as GitHubProfile} from 'passport-github2';
+import {and, eq} from 'drizzle-orm';
+import {userIdentities, users} from '@/models';
+import {getDatabase} from '@/lib/db';
+import {getRedis} from '@/lib/redis';
+import type {Context, MiddlewareHandler} from 'hono';
+import {deleteCookie, getCookie, setCookie} from 'hono/cookie';
+import {v4 as uuidv4} from 'uuid';
 
-const SESSION_SECRET = Deno.env.get('SESSION_SECRET') || 'change-this-secret-in-production';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'change-this-secret-in-production';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
 
 interface SessionData {
@@ -37,7 +37,7 @@ async function destroySession(sessionId: string) {
 
 // Session middleware
 export const sessionMiddleware: MiddlewareHandler = async (c, next) => {
-  const nodeEnv = Deno.env.get('NODE_ENV') || 'development';
+  const nodeEnv = process.env.NODE_ENV || 'development';
   const sessionId = getCookie(c, 'sessionId');
 
   if (sessionId) {
@@ -139,8 +139,8 @@ export async function handleGithubCallback(
 
 // Create session for user
 export async function createUserSession(c: Context, userId: string) {
-  const nodeEnv = Deno.env.get('NODE_ENV') || 'development';
-  const sessionId = v4.generate();
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  const sessionId = uuidv4();
 
   await setSession(sessionId, {
     userId,

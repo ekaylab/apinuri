@@ -1,14 +1,14 @@
-import { Hono } from '@hono/hono';
-import { cors } from '@hono/hono/middleware';
-import { logger } from '@hono/hono/middleware'
-import { sessionMiddleware } from '@/middlewares/auth';
+import { Hono } from 'hono';
+import { logger } from 'hono/logger';
+import { cors } from 'hono/cors';
 import healthRoute from '@/routes/health';
 import authRoute from '@/routes/auth';
+import { sessionMiddleware } from '@/middlewares/auth';
 
 const app = new Hono();
 
 const HOME_URL =
-  Deno.env.get('NODE_ENV') === 'development'
+  process.env.NODE_ENV === 'development'
     ? 'http://localhost:3000'
     : 'https://apinuri.com';
 

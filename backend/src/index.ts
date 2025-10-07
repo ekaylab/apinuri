@@ -1,22 +1,22 @@
-import app from './app.ts';
+import app from './app';
 import { initializeDatabase } from '@/lib/db';
 import { initializeRedis } from '@/lib/redis';
 
 const PORT = 4000;
 
 // Initialize connections
-const databaseUrl = Deno.env.get('DATABASE_URL');
-const redisUrl = Deno.env.get('REDIS_URL');
-const nodeEnv = Deno.env.get('NODE_ENV') || 'development';
+const databaseUrl = process.env.DATABASE_URL;
+const redisUrl = process.env.REDIS_URL;
+const nodeEnv = process.env.NODE_ENV || 'development';
 
 if (!databaseUrl) {
   console.error('DATABASE_URL environment variable is required');
-  Deno.exit(1);
+  process.exit(1);
 }
 
 if (!redisUrl) {
   console.error('REDIS_URL environment variable is required');
-  Deno.exit(1);
+  process.exit(1);
 }
 
 try {
@@ -32,12 +32,12 @@ try {
   console.log(`🚀 Hono server running on http://localhost:${PORT}`);
   console.log(`Environment: ${nodeEnv}`);
 
-  Deno.serve({
+  Bun.serve({
     fetch: app.fetch,
     port: PORT,
     hostname: '0.0.0.0',
   });
 } catch (err) {
   console.error('Failed to start server:', err);
-  Deno.exit(1);
+  process.exit(1);
 }

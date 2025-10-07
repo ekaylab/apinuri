@@ -1,24 +1,26 @@
-import { Hono } from 'hono';
-import { Strategy as GitHubStrategy } from 'passport-github2';
-import {
-  handleGithubCallback,
-  createUserSession,
-  destroyUserSession,
-  requireAuth,
-} from '@/middlewares/auth';
+import {Hono} from 'hono';
+import type {Profile as GitHubProfile} from 'passport-github2';
+import {createUserSession, destroyUserSession, handleGithubCallback, requireAuth,} from '@/middlewares/auth';
+import type {users} from '@/models';
 
-const auth = new Hono();
+type User = typeof users.$inferSelect;
+
+type Variables = {
+  user: User;
+};
+
+const auth = new Hono<{Variables: Variables}>();
 
 const HOME_URL =
-  Deno.env.get('NODE_ENV') === 'development'
+  process.env.NODE_ENV === 'development'
     ? 'http://localhost:3000'
     : 'https://apinuri.com';
 
 // GitHub OAuth - initiate
 auth.get('/github', async (c) => {
-  const githubClientId = Deno.env.get('GITHUB_CLIENT_ID');
+  const githubClientId = process.env.GITHUB_CLIENT_ID;
   const baseUrl =
-    Deno.env.get('NODE_ENV') === 'development'
+    process.env.NODE_ENV === 'development'
       ? 'http://localhost:4000'
       : 'https://api.apinuri.com';
 
@@ -39,10 +41,10 @@ auth.get('/github/callback', async (c) => {
   }
 
   try {
-    const githubClientId = Deno.env.get('GITHUB_CLIENT_ID');
-    const githubClientSecret = Deno.env.get('GITHUB_CLIENT_SECRET');
+    const githubClientId = process.env.GITHUB_CLIENT_ID;
+    const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
     const baseUrl =
-      Deno.env.get('NODE_ENV') === 'development'
+      process.env.NODE_ENV === 'development'
         ? 'http://localhost:4000'
         : 'https://api.apinuri.com';
 
@@ -61,7 +63,7 @@ auth.get('/github/callback', async (c) => {
       }),
     });
 
-    const tokenData = await tokenResponse.json();
+    const tokenData = await tokenResponse.json() as {access_token?: string};
     const accessToken = tokenData.access_token;
 
     if (!accessToken) {
@@ -76,7 +78,7 @@ auth.get('/github/callback', async (c) => {
       },
     });
 
-    const profile = await profileResponse.json();
+    const profile = await profileResponse.json() as GitHubProfile;
 
     // Get user emails
     const emailsResponse = await fetch('https://api.github.com/user/emails', {
@@ -86,8 +88,7 @@ auth.get('/github/callback', async (c) => {
       },
     });
 
-    const emails = await emailsResponse.json();
-    profile.emails = emails;
+    profile.emails = await emailsResponse.json() as Array<{value: string; type?: string}>;
 
     // Handle the callback using existing logic
     const user = await handleGithubCallback(accessToken, '', profile);

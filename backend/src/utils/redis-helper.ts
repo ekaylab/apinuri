@@ -1,10 +1,10 @@
-import type { RedisWrapper } from '@/lib/redis';
+import type Redis from 'ioredis';
 
 /**
  * SCAN 명령어를 사용하여 안전하게 키를 검색하고 삭제합니다.
  */
 export async function scanAndDeleteKeys(
-  redis: RedisWrapper,
+  redis: Redis,
   pattern: string,
   batchSize = 100,
 ): Promise<number> {
@@ -13,7 +13,7 @@ export async function scanAndDeleteKeys(
 
   do {
     // SCAN으로 키를 안전하게 가져옴
-    const [nextCursor, keys] = await redis.scan(cursor, pattern, batchSize);
+    const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', batchSize);
 
     cursor = nextCursor;
 
