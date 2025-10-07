@@ -13,23 +13,46 @@ export async function initializeDatabase(databaseUrl: string, nodeEnv: string) {
 
   console.log('Connecting to database');
 
-  try {
-    postgresClient = postgres(databaseUrl, {
-      ssl: { rejectUnauthorized: false },
-      connect_timeout: 10,
-      max: nodeEnv === 'production' ? 20 : 1,
-    });
+  const maxRetries = 10;
+  const retryDelay = 2000; // 2 seconds between retries
 
-    dbInstance = drizzle(postgresClient, { schema });
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      postgresClient = postgres(databaseUrl, {
+        ssl: { rejectUnauthorized: false },
+        connect_timeout: 10,
+        max: nodeEnv === 'production' ? 20 : 1,
+      });
 
-    await dbInstance.execute(sql`select 1`);
-    console.log('Connected to database successfully');
+      dbInstance = drizzle(postgresClient, { schema });
 
-    return dbInstance;
-  } catch (e) {
-    console.error('Failed to initialize database connection:', e);
-    throw e;
+      await dbInstance.execute(sql`select 1`);
+      console.log('Connected to database successfully');
+
+      return dbInstance;
+    } catch (e: any) {
+      const isStartingUp = e?.message?.includes('starting up') || e?.code === '57P03';
+
+      if (attempt < maxRetries) {
+        console.log(`Database connection failed (attempt ${attempt}/${maxRetries}). Retrying in ${retryDelay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+
+        // Clean up failed connection attempt
+        if (postgresClient) {
+          try {
+            await postgresClient.end();
+          } catch {}
+          postgresClient = null;
+        }
+        dbInstance = null;
+      } else {
+        console.error('Failed to initialize database connection:', e);
+        throw e;
+      }
+    }
   }
+
+  throw new Error('Failed to connect to database after maximum retries');
 }
 
 export function getDatabase(): DB {

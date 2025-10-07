@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { getRedis } from '@/lib/redis';
+import { redis } from '@/lib/redis';
 
 const health = new Hono();
 
@@ -10,7 +10,6 @@ health.get('/', async (c) => {
     await db.execute(sql`SELECT 1`);
 
     try {
-      const redis = getRedis();
       await redis.ping();
 
       const memoryUsage = process.memoryUsage();

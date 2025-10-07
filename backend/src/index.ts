@@ -24,10 +24,11 @@ try {
   const redisUrlObj = new URL(redisUrl);
   const redisHost = redisUrlObj.hostname;
   const redisPort = parseInt(redisUrlObj.port || '6379', 10);
+  const redisPassword = redisUrlObj.password || undefined;
 
   // Initialize database and Redis
   await initializeDatabase(databaseUrl, nodeEnv);
-  await initializeRedis(redisHost, redisPort);
+  await initializeRedis(redisHost, redisPort, redisPassword);
 
   console.log(`🚀 Hono server running on http://localhost:${PORT}`);
   console.log(`Environment: ${nodeEnv}`);
