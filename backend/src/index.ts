@@ -4,10 +4,11 @@ import { initializeRedis } from '@/lib/redis';
 
 const PORT = 4000;
 
-// Initialize connections
 const databaseUrl = process.env.DATABASE_URL;
 const redisUrl = process.env.REDIS_URL;
 const nodeEnv = process.env.NODE_ENV || 'development';
+
+console.log('redisUrl', redisUrl);
 
 if (!databaseUrl) {
   console.error('DATABASE_URL environment variable is required');
@@ -26,7 +27,6 @@ try {
   const redisPort = parseInt(redisUrlObj.port || '6379', 10);
   const redisPassword = redisUrlObj.password || undefined;
 
-  // Initialize database and Redis
   await initializeDatabase(databaseUrl, nodeEnv);
   await initializeRedis(redisHost, redisPort, redisPassword);
 
