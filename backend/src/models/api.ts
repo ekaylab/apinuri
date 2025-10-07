@@ -20,10 +20,28 @@ export const apis = pgTable('apis', {
   userSlugIdx: uniqueIndex('user_slug_idx').on(table.user_id, table.slug),
 }));
 
+// API endpoints table - document each endpoint
+export const apiEndpoints = pgTable('api_endpoints', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  api_id: uuid('api_id').notNull().references(() => apis.id, { onDelete: 'cascade' }),
+  path: text('path').notNull(), // e.g., "/forecast" or "/weather/{city}"
+  method: text('method').notNull(), // GET, POST, PUT, DELETE, PATCH
+  name: text('name').notNull(), // e.g., "Get Weather Forecast"
+  description: text('description'),
+  parameters: jsonb('parameters'), // JSON schema for path/query/body params
+  response_example: jsonb('response_example'), // Example response
+  is_active: boolean('is_active').default(true).notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  apiMethodPathIdx: uniqueIndex('api_method_path_idx').on(table.api_id, table.method, table.path),
+}));
+
 // API requests table - usage tracking
 export const apiRequests = pgTable('api_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
   api_id: uuid('api_id').notNull().references(() => apis.id, { onDelete: 'cascade' }),
+  endpoint_id: uuid('endpoint_id').references(() => apiEndpoints.id, { onDelete: 'set null' }),
   method: text('method').notNull(), // GET, POST, etc.
   path: text('path').notNull(), // Request path
   status_code: integer('status_code').notNull(),
@@ -37,12 +55,24 @@ export const apisRelations = relations(apis, ({ one, many }) => ({
     fields: [apis.user_id],
     references: [users.id],
   }),
+  endpoints: many(apiEndpoints),
   requests: many(apiRequests),
+}));
+
+export const apiEndpointsRelations = relations(apiEndpoints, ({ one }) => ({
+  api: one(apis, {
+    fields: [apiEndpoints.api_id],
+    references: [apis.id],
+  }),
 }));
 
 export const apiRequestsRelations = relations(apiRequests, ({ one }) => ({
   api: one(apis, {
     fields: [apiRequests.api_id],
     references: [apis.id],
+  }),
+  endpoint: one(apiEndpoints, {
+    fields: [apiRequests.endpoint_id],
+    references: [apiEndpoints.id],
   }),
 }));
