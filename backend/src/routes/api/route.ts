@@ -1,7 +1,8 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { Type } from '@sinclair/typebox';
+import { Static, Type } from '@sinclair/typebox';
 import { apiEndpoints, apis } from '@/models/api';
 import { eq } from 'drizzle-orm';
+import { authMiddleware } from '@/middleware/auth';
 
 const EndpointSchema = Type.Object({
   path: Type.String({
@@ -57,10 +58,11 @@ const ApiParamsSchema = Type.Object({
 });
 
 export default async function apisRoutes(fastify: FastifyInstance) {
-  // Register new API (requires authentication in production)
-  fastify.post(
+  // Register new API (requires authentication)
+  fastify.post<{ Body: Static<typeof RegisterApiBodySchema> }>(
     '/register',
     {
+      preHandler: authMiddleware.requireAuth,
       schema: {
         description: 'Register a new API to the marketplace',
         tags: ['APIs'],
@@ -68,14 +70,9 @@ export default async function apisRoutes(fastify: FastifyInstance) {
         body: RegisterApiBodySchema,
       },
     },
-    async (
-      request: FastifyRequest<{ Body: typeof RegisterApiBodySchema.static }>,
-      reply: FastifyReply
-    ) => {
+    async (request, reply) => {
       try {
-        // For MVP without login, use a temporary user_id
-        // TODO: Replace with actual authenticated user
-        const tempUserId = '00000000-0000-0000-0000-000000000000';
+        const userId = (request.user as any).id;
 
         const {
           slug,
@@ -90,7 +87,7 @@ export default async function apisRoutes(fastify: FastifyInstance) {
         // Check if slug already exists for this user
         const existing = await fastify.db.query.apis.findFirst({
           where: (api, { eq, and }) =>
-            and(eq(api.user_id, tempUserId), eq(api.slug, slug)),
+            and(eq(api.user_id, userId), eq(api.slug, slug)),
         });
 
         if (existing) {
@@ -102,7 +99,7 @@ export default async function apisRoutes(fastify: FastifyInstance) {
         const [newApi] = await fastify.db
           .insert(apis)
           .values({
-            user_id: tempUserId,
+            user_id: userId,
             slug,
             name,
             description,
@@ -196,7 +193,7 @@ export default async function apisRoutes(fastify: FastifyInstance) {
       },
     },
     async (
-      request: FastifyRequest<{ Params: typeof ApiParamsSchema.static }>,
+      request: FastifyRequest<{ Params: Static<typeof ApiParamsSchema> }>,
       reply: FastifyReply
     ) => {
       try {
@@ -230,9 +227,13 @@ export default async function apisRoutes(fastify: FastifyInstance) {
   );
 
   // Update API
-  fastify.patch(
+  fastify.patch<{
+    Params: Static<typeof ApiParamsSchema>;
+    Body: Static<typeof UpdateApiBodySchema>;
+  }>(
     '/:apiId',
     {
+      preHandler: authMiddleware.requireAuth,
       schema: {
         description: 'Update API details',
         tags: ['APIs'],
@@ -241,16 +242,24 @@ export default async function apisRoutes(fastify: FastifyInstance) {
         body: UpdateApiBodySchema,
       },
     },
-    async (
-      request: FastifyRequest<{
-        Params: typeof ApiParamsSchema.static;
-        Body: typeof UpdateApiBodySchema.static;
-      }>,
-      reply: FastifyReply
-    ) => {
+    async (request, reply) => {
       try {
         const { apiId } = request.params;
         const updates = request.body;
+        const userId = (request.user as any).id;
+
+        // Check if API exists and belongs to user
+        const api = await fastify.db.query.apis.findFirst({
+          where: (api, { eq }) => eq(api.id, apiId),
+        });
+
+        if (!api) {
+          return reply.code(404).send({ error: 'API not found' });
+        }
+
+        if (api.user_id !== userId) {
+          return reply.code(403).send({ error: 'You do not own this API' });
+        }
 
         const [updatedApi] = await fastify.db
           .update(apis)
@@ -278,9 +287,10 @@ export default async function apisRoutes(fastify: FastifyInstance) {
   );
 
   // Delete API
-  fastify.delete(
+  fastify.delete<{ Params: Static<typeof ApiParamsSchema> }>(
     '/:apiId',
     {
+      preHandler: authMiddleware.requireAuth,
       schema: {
         description: 'Delete API',
         tags: ['APIs'],
@@ -288,12 +298,23 @@ export default async function apisRoutes(fastify: FastifyInstance) {
         params: ApiParamsSchema,
       },
     },
-    async (
-      request: FastifyRequest<{ Params: typeof ApiParamsSchema.static }>,
-      reply: FastifyReply
-    ) => {
+    async (request, reply) => {
       try {
         const { apiId } = request.params;
+        const userId = (request.user as any).id;
+
+        // Check if API exists and belongs to user
+        const api = await fastify.db.query.apis.findFirst({
+          where: (api, { eq }) => eq(api.id, apiId),
+        });
+
+        if (!api) {
+          return reply.code(404).send({ error: 'API not found' });
+        }
+
+        if (api.user_id !== userId) {
+          return reply.code(403).send({ error: 'You do not own this API' });
+        }
 
         await fastify.db.delete(apis).where(eq(apis.id, apiId));
 

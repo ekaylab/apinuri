@@ -1,5 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { apiRequests } from '@/models/api';
+import { apiKeys } from '@/models/auth';
+import { and, eq } from 'drizzle-orm';
 
 export default async function proxyRoutes(fastify: FastifyInstance) {
   // Proxy requests to registered APIs
@@ -19,6 +21,35 @@ export default async function proxyRoutes(fastify: FastifyInstance) {
       const startTime = Date.now();
 
       try {
+        // Validate API key
+        const xApiKey = request.headers['x-api-key'];
+
+        if (!xApiKey) {
+          return reply.code(401).send({
+            error: 'API key is required',
+            message: 'Include your API key in the x-api-key header. Generate one at POST /api/keys/generate'
+          });
+        }
+
+        const apiKey = await fastify.db.query.apiKeys.findFirst({
+          where: and(
+            eq(apiKeys.key, xApiKey as string),
+            eq(apiKeys.is_active, true)
+          ),
+        });
+
+        if (!apiKey) {
+          return reply.code(401).send({ error: 'Invalid API key' });
+        }
+
+        // Check if API key has expired
+        if (apiKey.expires_at && apiKey.expires_at < new Date()) {
+          return reply.code(401).send({
+            error: 'API key has expired',
+            message: 'Generate a new API key at POST /api/keys/generate'
+          });
+        }
+
         const { slug } = request.params;
         const path = request.params['*'] || '';
         const requestPath = `/${path}`;
@@ -97,6 +128,7 @@ export default async function proxyRoutes(fastify: FastifyInstance) {
           .insert(apiRequests)
           .values({
             api_id: api.id,
+            api_key_id: apiKey.id,
             endpoint_id: matchedEndpoint?.id || null,
             method: request.method,
             path: `/${path}${queryString}`,

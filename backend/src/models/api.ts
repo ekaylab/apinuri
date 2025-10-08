@@ -1,6 +1,7 @@
 import { pgTable, text, timestamp, uuid, boolean, integer, jsonb, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { users } from './user';
+import { apiKeys } from './auth';
 
 // APIs table - user-registered APIs
 export const apis = pgTable('apis', {
@@ -41,6 +42,7 @@ export const apiEndpoints = pgTable('api_endpoints', {
 export const apiRequests = pgTable('api_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
   api_id: uuid('api_id').notNull().references(() => apis.id, { onDelete: 'cascade' }),
+  api_key_id: uuid('api_key_id').references(() => apiKeys.id, { onDelete: 'set null' }),
   endpoint_id: uuid('endpoint_id').references(() => apiEndpoints.id, { onDelete: 'set null' }),
   method: text('method').notNull(), // GET, POST, etc.
   path: text('path').notNull(), // Request path
@@ -70,6 +72,10 @@ export const apiRequestsRelations = relations(apiRequests, ({ one }) => ({
   api: one(apis, {
     fields: [apiRequests.api_id],
     references: [apis.id],
+  }),
+  apiKey: one(apiKeys, {
+    fields: [apiRequests.api_key_id],
+    references: [apiKeys.id],
   }),
   endpoint: one(apiEndpoints, {
     fields: [apiRequests.endpoint_id],

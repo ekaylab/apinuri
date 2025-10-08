@@ -2,10 +2,7 @@ import 'fastify';
 import type { DB } from '@/plugins/db';
 
 declare module 'fastify' {
-  interface FastifyContextConfig {
-    skipApiKey?: boolean;
-    requireAuth?: boolean;
-  }
+  interface FastifyContextConfig {}
 
   interface FastifyInstance {
     config: {

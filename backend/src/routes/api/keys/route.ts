@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { apiKeys } from '@/models/auth';
 import { v4 as uuidv4 } from 'uuid';
 import dayjs from 'dayjs';
@@ -8,9 +8,6 @@ export default async function apiKeysRoutes(fastify: FastifyInstance) {
   fastify.post(
     '/generate',
     {
-      config: {
-        skipApiKey: true, // Don't require API key to generate one
-      },
       schema: {
         description:
           'Generate a temporary API key for anonymous users (based on IP address)',
