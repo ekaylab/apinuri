@@ -6,13 +6,14 @@ import dayjs from 'dayjs';
 export default async function apiKeysRoutes(fastify: FastifyInstance) {
   // Generate temporary API key for anonymous users
   fastify.post(
-    '/api/keys/generate',
+    '/generate',
     {
       config: {
         skipApiKey: true, // Don't require API key to generate one
       },
       schema: {
-        description: 'Generate a temporary API key for anonymous users (based on IP address)',
+        description:
+          'Generate a temporary API key for anonymous users (based on IP address)',
         tags: ['API Keys'],
         summary: 'Generate temporary API key',
       },

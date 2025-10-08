@@ -4,12 +4,25 @@ import { apiEndpoints } from '@/models/api';
 import { eq } from 'drizzle-orm';
 
 const EndpointBodySchema = Type.Object({
-  path: Type.String({ description: 'Endpoint path (e.g., "/forecast" or "/weather/{city}")' }),
-  method: Type.String({ description: 'HTTP method', enum: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] }),
-  name: Type.String({ description: 'Endpoint name (e.g., "Get Weather Forecast")' }),
-  description: Type.Optional(Type.String({ description: 'Endpoint description' })),
-  parameters: Type.Optional(Type.Any({ description: 'JSON schema for parameters' })),
-  response_example: Type.Optional(Type.Any({ description: 'Example response' })),
+  path: Type.String({
+    description: 'Endpoint path (e.g., "/forecast" or "/weather/{city}")',
+  }),
+  method: Type.String({
+    description: 'HTTP method',
+    enum: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  }),
+  name: Type.String({
+    description: 'Endpoint name (e.g., "Get Weather Forecast")',
+  }),
+  description: Type.Optional(
+    Type.String({ description: 'Endpoint description' })
+  ),
+  parameters: Type.Optional(
+    Type.Any({ description: 'JSON schema for parameters' })
+  ),
+  response_example: Type.Optional(
+    Type.Any({ description: 'Example response' })
+  ),
 });
 
 const UpdateEndpointBodySchema = Type.Partial(EndpointBodySchema);
@@ -26,7 +39,7 @@ const ApiIdParamsSchema = Type.Object({
 export default async function endpointsRoutes(fastify: FastifyInstance) {
   // Add new endpoint to an API
   fastify.post(
-    '/apis/:apiId/endpoints',
+    '/:apiId/endpoints',
     {
       schema: {
         description: 'Add a new endpoint to an API',
@@ -36,10 +49,13 @@ export default async function endpointsRoutes(fastify: FastifyInstance) {
         body: EndpointBodySchema,
       },
     },
-    async (request: FastifyRequest<{
-      Params: typeof ApiIdParamsSchema.static,
-      Body: typeof EndpointBodySchema.static
-    }>, reply: FastifyReply) => {
+    async (
+      request: FastifyRequest<{
+        Params: typeof ApiIdParamsSchema.static;
+        Body: typeof EndpointBodySchema.static;
+      }>,
+      reply: FastifyReply
+    ) => {
       try {
         const { apiId } = request.params;
         const endpointData = request.body;
@@ -69,7 +85,7 @@ export default async function endpointsRoutes(fastify: FastifyInstance) {
 
   // Get all endpoints for an API
   fastify.get(
-    '/apis/:apiId/endpoints',
+    '/:apiId/endpoints',
     {
       schema: {
         description: 'Get all endpoints for an API',
@@ -78,15 +94,16 @@ export default async function endpointsRoutes(fastify: FastifyInstance) {
         params: ApiIdParamsSchema,
       },
     },
-    async (request: FastifyRequest<{ Params: typeof ApiIdParamsSchema.static }>, reply: FastifyReply) => {
+    async (
+      request: FastifyRequest<{ Params: typeof ApiIdParamsSchema.static }>,
+      reply: FastifyReply
+    ) => {
       try {
         const { apiId } = request.params;
 
         const endpoints = await fastify.db.query.apiEndpoints.findMany({
-          where: (endpoint, { eq, and }) => and(
-            eq(endpoint.api_id, apiId),
-            eq(endpoint.is_active, true)
-          ),
+          where: (endpoint, { eq, and }) =>
+            and(eq(endpoint.api_id, apiId), eq(endpoint.is_active, true)),
         });
 
         reply.send({ endpoints });
@@ -102,7 +119,7 @@ export default async function endpointsRoutes(fastify: FastifyInstance) {
 
   // Update endpoint
   fastify.patch(
-    '/apis/:apiId/endpoints/:endpointId',
+    '/:apiId/endpoints/:endpointId',
     {
       schema: {
         description: 'Update an endpoint',
@@ -112,10 +129,13 @@ export default async function endpointsRoutes(fastify: FastifyInstance) {
         body: UpdateEndpointBodySchema,
       },
     },
-    async (request: FastifyRequest<{
-      Params: typeof EndpointParamsSchema.static,
-      Body: typeof UpdateEndpointBodySchema.static
-    }>, reply: FastifyReply) => {
+    async (
+      request: FastifyRequest<{
+        Params: typeof EndpointParamsSchema.static;
+        Body: typeof UpdateEndpointBodySchema.static;
+      }>,
+      reply: FastifyReply
+    ) => {
       try {
         const { endpointId } = request.params;
         const updates = request.body;
@@ -146,7 +166,7 @@ export default async function endpointsRoutes(fastify: FastifyInstance) {
 
   // Delete endpoint
   fastify.delete(
-    '/apis/:apiId/endpoints/:endpointId',
+    '/:apiId/endpoints/:endpointId',
     {
       schema: {
         description: 'Delete an endpoint',
@@ -155,7 +175,10 @@ export default async function endpointsRoutes(fastify: FastifyInstance) {
         params: EndpointParamsSchema,
       },
     },
-    async (request: FastifyRequest<{ Params: typeof EndpointParamsSchema.static }>, reply: FastifyReply) => {
+    async (
+      request: FastifyRequest<{ Params: typeof EndpointParamsSchema.static }>,
+      reply: FastifyReply
+    ) => {
       try {
         const { endpointId } = request.params;
 

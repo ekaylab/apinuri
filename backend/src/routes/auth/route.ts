@@ -6,7 +6,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
   // GitHub OAuth
   fastify.get(
-    '/auth/github',
+    '/github',
     {
       schema: {
         hide: true,
@@ -19,7 +19,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   );
 
   fastify.get(
-    '/auth/github/callback',
+    '/github/callback',
     {
       schema: {
         hide: true,
@@ -34,7 +34,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
   // Logout
   fastify.post(
-    '/auth/logout',
+    '/logout',
     async (request: FastifyRequest, reply: FastifyReply) => {
       request.logout();
       reply.send({ success: true });
@@ -42,13 +42,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
   );
 
   // Get current user
-  fastify.get(
-    '/auth/me',
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      if (!request.isAuthenticated()) {
-        return reply.code(401).send({ error: 'Not authenticated' });
-      }
-      reply.send({ user: request.user });
+  fastify.get('/me', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!request.isAuthenticated()) {
+      return reply.code(401).send({ error: 'Not authenticated' });
     }
-  );
+    reply.send({ user: request.user });
+  });
 }

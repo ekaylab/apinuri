@@ -39,6 +39,12 @@ export default async function createServer() {
   });
 
   server.addHook('onResponse', (request, reply, done) => {
+    // Skip logging for Swagger documentation routes
+    if (request.raw.url?.startsWith('/docs')) {
+      done();
+      return;
+    }
+
     const logMessage = `${request.method} ${request.raw.url} ${reply.statusCode} ${request.headers['x-forwarded-for']} ${reply.elapsedTime.toFixed(2)}ms`;
 
     const relevantHeaders = {

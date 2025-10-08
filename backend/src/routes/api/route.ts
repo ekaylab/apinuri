@@ -1,15 +1,28 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { Type } from '@sinclair/typebox';
-import { apis, apiEndpoints } from '@/models/api';
-import { eq, and } from 'drizzle-orm';
+import { apiEndpoints, apis } from '@/models/api';
+import { eq } from 'drizzle-orm';
 
 const EndpointSchema = Type.Object({
-  path: Type.String({ description: 'Endpoint path (e.g., "/forecast" or "/weather/{city}")' }),
-  method: Type.String({ description: 'HTTP method', enum: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] }),
-  name: Type.String({ description: 'Endpoint name (e.g., "Get Weather Forecast")' }),
-  description: Type.Optional(Type.String({ description: 'Endpoint description' })),
-  parameters: Type.Optional(Type.Any({ description: 'JSON schema for parameters' })),
-  response_example: Type.Optional(Type.Any({ description: 'Example response' })),
+  path: Type.String({
+    description: 'Endpoint path (e.g., "/forecast" or "/weather/{city}")',
+  }),
+  method: Type.String({
+    description: 'HTTP method',
+    enum: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  }),
+  name: Type.String({
+    description: 'Endpoint name (e.g., "Get Weather Forecast")',
+  }),
+  description: Type.Optional(
+    Type.String({ description: 'Endpoint description' })
+  ),
+  parameters: Type.Optional(
+    Type.Any({ description: 'JSON schema for parameters' })
+  ),
+  response_example: Type.Optional(
+    Type.Any({ description: 'Example response' })
+  ),
 });
 
 const RegisterApiBodySchema = Type.Object({
@@ -24,12 +37,17 @@ const RegisterApiBodySchema = Type.Object({
     format: 'uri',
   }),
   category: Type.Optional(Type.String({ description: 'API category' })),
-  headers: Type.Optional(Type.Record(Type.String(), Type.String(), {
-    description: 'Custom headers to include when proxying (e.g., auth tokens)',
-  })),
-  endpoints: Type.Optional(Type.Array(EndpointSchema, {
-    description: 'List of API endpoints to register',
-  })),
+  headers: Type.Optional(
+    Type.Record(Type.String(), Type.String(), {
+      description:
+        'Custom headers to include when proxying (e.g., auth tokens)',
+    })
+  ),
+  endpoints: Type.Optional(
+    Type.Array(EndpointSchema, {
+      description: 'List of API endpoints to register',
+    })
+  ),
 });
 
 const UpdateApiBodySchema = Type.Partial(RegisterApiBodySchema);
@@ -41,7 +59,7 @@ const ApiParamsSchema = Type.Object({
 export default async function apisRoutes(fastify: FastifyInstance) {
   // Register new API (requires authentication in production)
   fastify.post(
-    '/apis/register',
+    '/register',
     {
       schema: {
         description: 'Register a new API to the marketplace',
@@ -50,24 +68,35 @@ export default async function apisRoutes(fastify: FastifyInstance) {
         body: RegisterApiBodySchema,
       },
     },
-    async (request: FastifyRequest<{ Body: typeof RegisterApiBodySchema.static }>, reply: FastifyReply) => {
+    async (
+      request: FastifyRequest<{ Body: typeof RegisterApiBodySchema.static }>,
+      reply: FastifyReply
+    ) => {
       try {
         // For MVP without login, use a temporary user_id
         // TODO: Replace with actual authenticated user
         const tempUserId = '00000000-0000-0000-0000-000000000000';
 
-        const { slug, name, description, base_url, category, headers, endpoints: endpointsList } = request.body;
+        const {
+          slug,
+          name,
+          description,
+          base_url,
+          category,
+          headers,
+          endpoints: endpointsList,
+        } = request.body;
 
         // Check if slug already exists for this user
         const existing = await fastify.db.query.apis.findFirst({
-          where: (api, { eq, and }) => and(
-            eq(api.user_id, tempUserId),
-            eq(api.slug, slug)
-          ),
+          where: (api, { eq, and }) =>
+            and(eq(api.user_id, tempUserId), eq(api.slug, slug)),
         });
 
         if (existing) {
-          return reply.code(400).send({ error: 'API with this slug already exists' });
+          return reply
+            .code(400)
+            .send({ error: 'API with this slug already exists' });
         }
 
         const [newApi] = await fastify.db
@@ -116,7 +145,7 @@ export default async function apisRoutes(fastify: FastifyInstance) {
 
   // List all public APIs
   fastify.get(
-    '/apis',
+    '',
     {
       schema: {
         description: 'Get all public APIs',
@@ -127,10 +156,8 @@ export default async function apisRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
         const publicApis = await fastify.db.query.apis.findMany({
-          where: (api, { eq, and }) => and(
-            eq(api.is_public, true),
-            eq(api.is_active, true)
-          ),
+          where: (api, { eq, and }) =>
+            and(eq(api.is_public, true), eq(api.is_active, true)),
           columns: {
             id: true,
             slug: true,
@@ -159,7 +186,7 @@ export default async function apisRoutes(fastify: FastifyInstance) {
 
   // Get single API details with endpoints
   fastify.get(
-    '/apis/:apiId',
+    '/:apiId',
     {
       schema: {
         description: 'Get API details by ID including endpoints',
@@ -168,7 +195,10 @@ export default async function apisRoutes(fastify: FastifyInstance) {
         params: ApiParamsSchema,
       },
     },
-    async (request: FastifyRequest<{ Params: typeof ApiParamsSchema.static }>, reply: FastifyReply) => {
+    async (
+      request: FastifyRequest<{ Params: typeof ApiParamsSchema.static }>,
+      reply: FastifyReply
+    ) => {
       try {
         const { apiId } = request.params;
 
@@ -201,7 +231,7 @@ export default async function apisRoutes(fastify: FastifyInstance) {
 
   // Update API
   fastify.patch(
-    '/apis/:apiId',
+    '/:apiId',
     {
       schema: {
         description: 'Update API details',
@@ -211,10 +241,13 @@ export default async function apisRoutes(fastify: FastifyInstance) {
         body: UpdateApiBodySchema,
       },
     },
-    async (request: FastifyRequest<{
-      Params: typeof ApiParamsSchema.static,
-      Body: typeof UpdateApiBodySchema.static
-    }>, reply: FastifyReply) => {
+    async (
+      request: FastifyRequest<{
+        Params: typeof ApiParamsSchema.static;
+        Body: typeof UpdateApiBodySchema.static;
+      }>,
+      reply: FastifyReply
+    ) => {
       try {
         const { apiId } = request.params;
         const updates = request.body;
@@ -246,7 +279,7 @@ export default async function apisRoutes(fastify: FastifyInstance) {
 
   // Delete API
   fastify.delete(
-    '/apis/:apiId',
+    '/:apiId',
     {
       schema: {
         description: 'Delete API',
@@ -255,13 +288,14 @@ export default async function apisRoutes(fastify: FastifyInstance) {
         params: ApiParamsSchema,
       },
     },
-    async (request: FastifyRequest<{ Params: typeof ApiParamsSchema.static }>, reply: FastifyReply) => {
+    async (
+      request: FastifyRequest<{ Params: typeof ApiParamsSchema.static }>,
+      reply: FastifyReply
+    ) => {
       try {
         const { apiId } = request.params;
 
-        await fastify.db
-          .delete(apis)
-          .where(eq(apis.id, apiId));
+        await fastify.db.delete(apis).where(eq(apis.id, apiId));
 
         reply.send({ message: 'API deleted successfully' });
       } catch (error) {
