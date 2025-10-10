@@ -4,15 +4,22 @@ import { eq, and } from 'drizzle-orm';
 import type { AppContext } from '@/types/context';
 
 const EndpointSchema = t.Object({
-  path: t.String({ description: 'Endpoint path (e.g., "/forecast" or "/weather/{city}")' }),
-  method: t.Union([
-    t.Literal('GET'),
-    t.Literal('POST'),
-    t.Literal('PUT'),
-    t.Literal('DELETE'),
-    t.Literal('PATCH'),
-  ], { description: 'HTTP method' }),
-  name: t.String({ description: 'Endpoint name (e.g., "Get Weather Forecast")' }),
+  path: t.String({
+    description: 'Endpoint path (e.g., "/forecast" or "/weather/{city}")',
+  }),
+  method: t.Union(
+    [
+      t.Literal('GET'),
+      t.Literal('POST'),
+      t.Literal('PUT'),
+      t.Literal('DELETE'),
+      t.Literal('PATCH'),
+    ],
+    { description: 'HTTP method' }
+  ),
+  name: t.String({
+    description: 'Endpoint name (e.g., "Get Weather Forecast")',
+  }),
   description: t.Optional(t.String({ description: 'Endpoint description' })),
   parameters: t.Optional(t.Any({ description: 'JSON schema for parameters' })),
   response_example: t.Optional(t.Any({ description: 'Example response' })),
@@ -32,7 +39,8 @@ const RegisterApiBodySchema = t.Object({
   category: t.Optional(t.String({ description: 'API category' })),
   headers: t.Optional(
     t.Record(t.String(), t.String(), {
-      description: 'Custom headers to include when proxying (e.g., auth tokens)',
+      description:
+        'Custom headers to include when proxying (e.g., auth tokens)',
     })
   ),
   endpoints: t.Optional(
@@ -52,11 +60,10 @@ export const apisRoutes = new Elysia()
   // Register new API (requires authentication)
   .post(
     '/register',
-    async (ctx) => {
-      const { body, user, db, config, set } = ctx as unknown as AppContext;
+    async ctx => {
+      const { body, user, db, config, status } = ctx as AppContext;
       if (!user) {
-        set.status = 401;
-        throw new Error('Authentication required');
+        return status(401, { error: 'Authentication required' });
       }
       const bodyData = body as any;
       const {
@@ -75,7 +82,7 @@ export const apisRoutes = new Elysia()
       });
 
       if (existing) {
-        throw new Error('API with this slug already exists');
+        return status(409, { error: 'API with this slug already exists' });
       }
 
       const [newApi] = await db
@@ -126,11 +133,11 @@ export const apisRoutes = new Elysia()
   // Update API
   .patch(
     '/:apiId',
-    async (ctx) => {
-      const { params, body, user, db, config, set } = ctx as unknown as AppContext;
+    async ctx => {
+      const { params, body, user, db, config, status } =
+        ctx as unknown as AppContext;
       if (!user) {
-        set.status = 401;
-        throw new Error('Authentication required');
+        return status(401, { error: 'Authentication required' });
       }
 
       const { apiId } = params;
@@ -141,11 +148,11 @@ export const apisRoutes = new Elysia()
       });
 
       if (!api) {
-        throw new Error('API not found');
+        return status(404, { error: 'API not found' });
       }
 
       if (api.user_id !== user.id) {
-        throw new Error('You do not own this API');
+        return status(403, { error: 'You do not own this API' });
       }
 
       const bodyData = body as any;
@@ -156,7 +163,7 @@ export const apisRoutes = new Elysia()
         .returning();
 
       if (!updatedApi) {
-        throw new Error('API not found');
+        return status(404, { error: 'API not found' });
       }
 
       return {
@@ -179,11 +186,10 @@ export const apisRoutes = new Elysia()
   // Delete API
   .delete(
     '/:apiId',
-    async (ctx) => {
-      const { params, user, db, set } = ctx as unknown as AppContext;
+    async ctx => {
+      const { params, user, db, status } = ctx as unknown as AppContext;
       if (!user) {
-        set.status = 401;
-        throw new Error('Authentication required');
+        return status(401, { error: 'Authentication required' });
       }
 
       const { apiId } = params;
@@ -194,11 +200,11 @@ export const apisRoutes = new Elysia()
       });
 
       if (!api) {
-        throw new Error('API not found');
+        return status(404, { error: 'API not found' });
       }
 
       if (api.user_id !== user.id) {
-        throw new Error('You do not own this API');
+        return status(403, { error: 'You do not own this API' });
       }
 
       await db.delete(apis).where(eq(apis.id, apiId));
@@ -218,7 +224,7 @@ export const apisRoutes = new Elysia()
   // List all public APIs (no auth required)
   .get(
     '',
-    async (ctx) => {
+    async ctx => {
       const { db, config } = ctx as unknown as AppContext;
       const publicApis = await db.query.apis.findMany({
         where: and(eq(apis.is_public, true), eq(apis.is_active, true)),
@@ -251,8 +257,8 @@ export const apisRoutes = new Elysia()
   // Get single API details with endpoints (no auth required)
   .get(
     '/:apiId',
-    async (ctx) => {
-      const { params, db, config } = ctx as unknown as AppContext;
+    async ctx => {
+      const { params, db, config, status } = ctx as unknown as AppContext;
       const { apiId } = params;
 
       const api = await db.query.apis.findFirst({
@@ -265,7 +271,7 @@ export const apisRoutes = new Elysia()
       });
 
       if (!api) {
-        throw new Error('API not found');
+        return status(404, { error: 'API not found' });
       }
 
       return {
