@@ -1,106 +1,80 @@
-import fastify from 'fastify';
-import Env from '@fastify/env';
-import AutoLoad from '@fastify/autoload';
-import path from 'path';
-import { Type } from '@sinclair/typebox';
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-import timezone from 'dayjs/plugin/timezone';
-import * as process from 'node:process';
+import { Elysia } from 'elysia';
+import { swagger } from '@elysiajs/swagger';
+import { cors } from '@elysiajs/cors';
+import { cookie } from '@elysiajs/cookie';
+import { db } from './lib/db';
+import { validateSession } from './lib/session';
+import { authRoutes } from './routes/auth';
+import { apiRoutes } from './routes/api';
+import { keysRoutes } from './routes/keys';
+import { proxyRoutes } from './routes/proxy';
 
-export default async function createServer() {
-  console.log('NODE_ENV: ', process.env.NODE_ENV);
+// Configuration
+const config = {
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  BASE_URL: process.env.BASE_URL ||
+    (process.env.NODE_ENV === 'development'
+      ? 'http://localhost:4000'
+      : 'https://api.apinuri.com'),
+  HOME_URL: process.env.HOME_URL ||
+    (process.env.NODE_ENV === 'development'
+      ? 'http://localhost:3000'
+      : 'https://apinuri.com'),
+  DATABASE_URL: process.env.DATABASE_URL!,
+  GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID!,
+  GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET!,
+};
 
-  const server = fastify({
-    logger:
-      process.env.NODE_ENV === 'development'
-        ? {
-            transport: {
-              target: 'pino-pretty',
-              options: {
-                translateTime: 'HH:MM:ss Z',
-                ignore: 'pid,hostname,reqId',
-              },
-            },
-            level: 'debug',
-          }
-        : {
-            base: null,
-            level: 'info',
-          },
-    disableRequestLogging: true,
-    ajv: {
-      customOptions: {
-        useDefaults: true,
-        coerceTypes: true,
-        removeAdditional: 'all',
+// Create Elysia app
+export const app = new Elysia()
+  .decorate('db', db)
+  .decorate('config', config)
+  .use(cookie())
+  .use(cors({
+    origin: config.HOME_URL,
+    credentials: true,
+  }))
+  .use(swagger({
+    documentation: {
+      info: {
+        title: 'Apinuri API',
+        version: '1.0.0',
+        description: 'API marketplace and proxy service',
       },
+      tags: [
+        { name: 'Auth', description: 'Authentication endpoints' },
+        { name: 'APIs', description: 'API management endpoints' },
+        { name: 'API Keys', description: 'API key management endpoints' },
+        { name: 'Proxy', description: 'Proxy endpoints' },
+      ],
     },
-  });
+  }))
+  // Auth middleware decorator
+  .derive(async ({ cookie }) => {
+    const sessionId = cookie.session;
 
-  server.addHook('onResponse', (request, reply, done) => {
-    // Skip logging for Swagger documentation routes
-    if (request.raw.url?.startsWith('/docs')) {
-      done();
-      return;
+    if (!sessionId) {
+      return { user: null, session: null };
     }
 
-    const logMessage = `${request.method} ${request.raw.url} ${reply.statusCode} ${request.headers['x-forwarded-for']} ${reply.elapsedTime.toFixed(2)}ms`;
+    const { session, user } = await validateSession(sessionId);
+    return { user, session };
+  })
+  // Request logging
+  .onRequest(({ request, set }) => {
+    const start = Date.now();
+    set.headers['x-request-start'] = start.toString();
+  })
+  .onAfterResponse(({ request, set }) => {
+    const start = parseInt(set.headers['x-request-start'] as string || '0');
+    const duration = Date.now() - start;
 
-    const relevantHeaders = {
-      'user-agent': request.headers['user-agent'],
-      'content-type': request.headers['content-type'],
-      'x-vercel-id': request.headers['x-vercel-id'],
-      'x-forwarded-for': request.headers['x-forwarded-for'],
-      'x-real-ip': request.headers['x-real-ip'],
-      'x-api-key': request.headers['x-api-key'] ? '[REDACTED]' : '[MISSING]',
-      referer: request.headers['referer'],
-      category: 'access',
-    };
-
-    if (reply.statusCode >= 500) {
-      server.log.error({ logMessage, headers: relevantHeaders });
-    } else if (reply.statusCode >= 400) {
-      server.log.warn({ logMessage, headers: relevantHeaders });
-    } else {
-      server.log.info(logMessage);
-    }
-
-    done();
-  });
-
-  await server.register(Env, {
-    confKey: 'config',
-    schema: Type.Object({
-      NODE_ENV: Type.String(),
-      BASE_URL: Type.String({
-        default:
-          process.env.NODE_ENV === 'development'
-            ? 'http://localhost:4000'
-            : 'https://api.apinuri.com',
-      }),
-      HOME_URL: Type.String({
-        default:
-          process.env.NODE_ENV === 'development'
-            ? 'http://localhost:3000'
-            : 'https://apinuri.com',
-      }),
-      DATABASE_URL: Type.String(),
-    }),
-    dotenv: process.env.NODE_ENV !== 'production',
-    data: process.env,
-  });
-
-  dayjs.extend(utc);
-  dayjs.extend(timezone);
-
-  await server.register(AutoLoad, {
-    dir: path.join(__dirname, 'plugins'),
-  });
-
-  await server.register(AutoLoad, {
-    dir: path.join(__dirname, 'routes'),
-  });
-
-  return server;
-}
+    console.log(
+      `${request.method} ${new URL(request.url).pathname} ${duration}ms`
+    );
+  })
+  // Register routes
+  .use(authRoutes)
+  .use(apiRoutes)
+  .use(keysRoutes)
+  .use(proxyRoutes);

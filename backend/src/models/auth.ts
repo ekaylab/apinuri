@@ -2,16 +2,13 @@ import { pgTable, text, timestamp, varchar, uuid, index, integer, boolean } from
 import { relations } from 'drizzle-orm';
 import { users } from './user';
 
-// Sessions table for storing user sessions (Fastify/Passport sessions)
+// Sessions table for custom session management
 export const sessions = pgTable('sessions', {
-  sid: varchar('sid', { length: 255 }).primaryKey(),
-  user_id: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
-  sess: text('sess').notNull(), // JSON stringified session data
-  expire: timestamp('expire').notNull(),
-  created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull(),
+  id: varchar('id', { length: 255 }).primaryKey(),
+  user_id: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expires_at: timestamp('expires_at', { withTimezone: true }).notNull(),
 }, (table) => ({
-  expireIdx: index('session_expire_idx').on(table.expire),
+  expireIdx: index('session_expire_idx').on(table.expires_at),
   userIdIdx: index('session_user_id_idx').on(table.user_id),
 }));
 

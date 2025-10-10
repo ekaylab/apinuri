@@ -1,107 +1,120 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { Elysia, t, type Context } from 'elysia';
 import { apiRequests } from '@/models/api';
 import { apiKeys } from '@/models/auth';
 import { and, eq } from 'drizzle-orm';
+import type { DB } from '@/lib/db';
 
-export default async function proxyRoutes(fastify: FastifyInstance) {
+type AppContext = Context & {
+  db: DB;
+  config: {
+    NODE_ENV: string;
+    BASE_URL: string;
+    HOME_URL: string;
+    DATABASE_URL: string;
+    GITHUB_CLIENT_ID: string;
+    GITHUB_CLIENT_SECRET: string;
+  };
+  user: any | null;
+  session: any | null;
+};
+
+export const proxyRoutes = new Elysia()
   // Proxy requests to registered APIs
-  fastify.all(
+  .all(
     '/proxy/:slug/*',
-    {
-      schema: {
-        description: 'Proxy requests to registered external APIs',
-        tags: ['Proxy'],
-        summary: 'Proxy API request',
-        hide: true, // Hide from docs since it's dynamic
-      },
-    },
-    async (request: FastifyRequest<{
-      Params: { slug: string; '*': string }
-    }>, reply: FastifyReply) => {
+    async (ctx) => {
+      const { params, request, db, set } = ctx as unknown as AppContext;
       const startTime = Date.now();
 
       try {
         // Validate API key
-        const xApiKey = request.headers['x-api-key'];
+        const xApiKey = request.headers.get('x-api-key');
 
         if (!xApiKey) {
-          return reply.code(401).send({
+          set.status = 401;
+          return {
             error: 'API key is required',
-            message: 'Include your API key in the x-api-key header. Generate one at POST /api/keys/generate'
-          });
+            message: 'Include your API key in the x-api-key header. Generate one at POST /api/keys/generate',
+          };
         }
 
-        const apiKey = await fastify.db.query.apiKeys.findFirst({
+        const apiKey = await db.query.apiKeys.findFirst({
           where: and(
-            eq(apiKeys.key, xApiKey as string),
+            eq(apiKeys.key, xApiKey),
             eq(apiKeys.is_active, true)
           ),
         });
 
         if (!apiKey) {
-          return reply.code(401).send({ error: 'Invalid API key' });
+          set.status = 401;
+          return { error: 'Invalid API key' };
         }
 
         // Check if API key has expired
         if (apiKey.expires_at && apiKey.expires_at < new Date()) {
-          return reply.code(401).send({
+          set.status = 401;
+          return {
             error: 'API key has expired',
-            message: 'Generate a new API key at POST /api/keys/generate'
-          });
+            message: 'Generate a new API key at POST /api/keys/generate',
+          };
         }
 
-        const { slug } = request.params;
-        const path = request.params['*'] || '';
+        const { slug } = params;
+        const url = new URL(request.url);
+        const path = url.pathname.replace(`/proxy/${slug}/`, '');
         const requestPath = `/${path}`;
 
         // Find the registered API with endpoints
-        const api = await fastify.db.query.apis.findFirst({
-          where: (api, { eq, and }) => and(
-            eq(api.slug, slug),
-            eq(api.is_active, true)
+        const api = await db.query.apis.findFirst({
+          where: (apis, { eq, and }) => and(
+            eq(apis.slug, slug),
+            eq(apis.is_active, true)
           ),
           with: {
             endpoints: {
-              where: (endpoint, { eq }) => eq(endpoint.is_active, true),
+              where: (endpoints, { eq }) => eq(endpoints.is_active, true),
             },
           },
         });
 
         if (!api) {
-          return reply.code(404).send({ error: 'API not found' });
+          set.status = 404;
+          return { error: 'API not found' };
         }
 
         // Find matching endpoint (if endpoints are registered)
         let matchedEndpoint = null;
         if (api.endpoints && api.endpoints.length > 0) {
           matchedEndpoint = api.endpoints.find(endpoint => {
-            // Match both method and path
             const methodMatches = endpoint.method === request.method;
-            // Simple path matching - can be enhanced with path parameters
-            const pathMatches = endpoint.path === requestPath ||
-                               endpoint.path === `/${path}` ||
-                               endpoint.path === path;
+            const pathMatches =
+              endpoint.path === requestPath ||
+              endpoint.path === `/${path}` ||
+              endpoint.path === path;
             return methodMatches && pathMatches;
           });
 
           // If endpoints are defined but no match found, reject the request
           if (!matchedEndpoint) {
-            return reply.code(404).send({
+            set.status = 404;
+            return {
               error: 'Endpoint not found',
-              message: `${request.method} ${requestPath} is not available for this API`
-            });
+              message: `${request.method} ${requestPath} is not available for this API`,
+            };
           }
         }
 
         // Build the full URL
         const targetUrl = `${api.base_url}/${path}`;
-        const queryString = new URL(request.url, 'http://localhost').search;
+        const queryString = url.search;
         const fullUrl = targetUrl + queryString;
 
         // Prepare headers
         const headers: Record<string, string> = {
           'user-agent': 'apinuri-proxy/1.0',
-          'x-forwarded-for': request.ip,
+          'x-forwarded-for': request.headers.get('x-forwarded-for') ||
+                             request.headers.get('x-real-ip') ||
+                             'unknown',
         };
 
         // Add custom headers from API config
@@ -110,22 +123,32 @@ export default async function proxyRoutes(fastify: FastifyInstance) {
         }
 
         // Forward content-type if present
-        if (request.headers['content-type']) {
-          headers['content-type'] = request.headers['content-type'];
+        const contentType = request.headers.get('content-type');
+        if (contentType) {
+          headers['content-type'] = contentType;
+        }
+
+        // Get request body
+        let body: string | undefined;
+        if (!['GET', 'HEAD'].includes(request.method)) {
+          body = JSON.stringify(await request.json());
         }
 
         // Make the proxied request
         const response = await fetch(fullUrl, {
           method: request.method,
           headers,
-          body: ['GET', 'HEAD'].includes(request.method) ? undefined : JSON.stringify(request.body),
+          body,
         });
 
         const responseTime = Date.now() - startTime;
 
         // Track usage (async, don't wait)
-        fastify.db
-          .insert(apiRequests)
+        const ipAddress = request.headers.get('x-forwarded-for') ||
+                         request.headers.get('x-real-ip') ||
+                         'unknown';
+
+        db.insert(apiRequests)
           .values({
             api_id: api.id,
             api_key_id: apiKey.id,
@@ -136,45 +159,47 @@ export default async function proxyRoutes(fastify: FastifyInstance) {
             response_time_ms: responseTime,
           })
           .catch(err => {
-            fastify.log.error({
-              msg: 'Error tracking API request',
-              error: err instanceof Error ? err.message : String(err),
-            });
+            console.error('Error tracking API request:', err);
           });
 
         // Get response body
-        const contentType = response.headers.get('content-type');
+        const responseContentType = response.headers.get('content-type');
         let responseBody;
 
-        if (contentType?.includes('application/json')) {
+        if (responseContentType?.includes('application/json')) {
           responseBody = await response.json();
         } else {
           responseBody = await response.text();
         }
 
-        // Forward the response
-        reply
-          .code(response.status)
-          .headers({
-            'content-type': contentType || 'application/json',
-            'x-response-time': `${responseTime}ms`,
-          })
-          .send(responseBody);
+        // Set response headers
+        set.status = response.status;
+        set.headers['content-type'] = responseContentType || 'application/json';
+        set.headers['x-response-time'] = `${responseTime}ms`;
 
+        return responseBody;
       } catch (error) {
         const responseTime = Date.now() - startTime;
 
-        fastify.log.error({
-          msg: 'Proxy request failed',
-          error: error instanceof Error ? error.message : String(error),
-          responseTime,
-        });
+        console.error('Proxy request failed:', error);
 
-        reply.code(500).send({
+        set.status = 500;
+        return {
           error: 'Proxy request failed',
           message: error instanceof Error ? error.message : 'Unknown error',
-        });
+        };
       }
+    },
+    {
+      params: t.Object({
+        slug: t.String(),
+        '*': t.String(),
+      }),
+      detail: {
+        tags: ['Proxy'],
+        summary: 'Proxy API request',
+        description: 'Proxy requests to registered external APIs',
+        hide: true,
+      },
     }
   );
-}
