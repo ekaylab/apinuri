@@ -1,24 +1,10 @@
-import { Elysia, type Context } from 'elysia';
+import { Elysia } from 'elysia';
 import { apiKeys } from '@/models/auth';
 import { and, eq, isNull, gt } from 'drizzle-orm';
 import dayjs from 'dayjs';
-import type { DB } from '@/lib/db';
+import type { AppContext } from '@/types/context';
 
-type AppContext = Context & {
-  db: DB;
-  config: {
-    NODE_ENV: string;
-    BASE_URL: string;
-    HOME_URL: string;
-    DATABASE_URL: string;
-    GITHUB_CLIENT_ID: string;
-    GITHUB_CLIENT_SECRET: string;
-  };
-  user: any | null;
-  session: any | null;
-};
-
-export const keysRoutes = new Elysia({ prefix: '/api/keys' })
+export const keysRoutes = new Elysia()
   // Generate temporary API key for anonymous users
   .post(
     '/generate',

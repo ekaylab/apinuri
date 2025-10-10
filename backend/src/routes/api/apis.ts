@@ -1,21 +1,7 @@
-import { Elysia, t, type Context } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { apis, apiEndpoints } from '@/models/api';
 import { eq, and } from 'drizzle-orm';
-import type { DB } from '@/lib/db';
-
-type AppContext = Context & {
-  db: DB;
-  config: {
-    NODE_ENV: string;
-    BASE_URL: string;
-    HOME_URL: string;
-    DATABASE_URL: string;
-    GITHUB_CLIENT_ID: string;
-    GITHUB_CLIENT_SECRET: string;
-  };
-  user: any | null;
-  session: any | null;
-};
+import type { AppContext } from '@/types/context';
 
 const EndpointSchema = t.Object({
   path: t.String({ description: 'Endpoint path (e.g., "/forecast" or "/weather/{city}")' }),
@@ -62,7 +48,7 @@ const ApiParamsSchema = t.Object({
   apiId: t.String({ format: 'uuid' }),
 });
 
-export const apiRoutes = new Elysia({ prefix: '/api' })
+export const apisRoutes = new Elysia()
   // Register new API (requires authentication)
   .post(
     '/register',

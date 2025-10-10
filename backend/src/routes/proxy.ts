@@ -1,22 +1,8 @@
-import { Elysia, t, type Context } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { apiRequests } from '@/models/api';
 import { apiKeys } from '@/models/auth';
 import { and, eq } from 'drizzle-orm';
-import type { DB } from '@/lib/db';
-
-type AppContext = Context & {
-  db: DB;
-  config: {
-    NODE_ENV: string;
-    BASE_URL: string;
-    HOME_URL: string;
-    DATABASE_URL: string;
-    GITHUB_CLIENT_ID: string;
-    GITHUB_CLIENT_SECRET: string;
-  };
-  user: any | null;
-  session: any | null;
-};
+import type { AppContext } from '@/types/context';
 
 export const proxyRoutes = new Elysia()
   // Proxy requests to registered APIs
