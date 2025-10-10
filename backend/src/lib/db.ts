@@ -1,5 +1,5 @@
 import postgres from 'postgres';
-import { drizzle } from 'drizzle-orm/postgres-js';
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import * as schema from '@/models';
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -15,4 +15,4 @@ const queryClient = postgres(DATABASE_URL, {
 });
 
 export const db = drizzle(queryClient, { schema });
-export type DB = typeof db;
+export type DB = PostgresJsDatabase<typeof schema>;
