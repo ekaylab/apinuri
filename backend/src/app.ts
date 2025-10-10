@@ -50,10 +50,22 @@ export const app = new Elysia()
     },
   }))
   // Auth middleware decorator
-  .derive(async ({ cookie }) => {
-    const sessionId = cookie.session;
+  .derive(async ({ cookie, path }) => {
+    // Skip session validation for public routes
+    const publicPaths = ['/swagger', '/auth/', '/api/keys/generate', '/proxy/'];
+    const isPublicPath = publicPaths.some(p => path.startsWith(p));
 
-    if (!sessionId) {
+    // Also skip for GET requests to /api (listing) and /api/:id (details)
+    const isPublicApiRead = path.startsWith('/api') &&
+                            (path === '/api' || path.match(/^\/api\/[a-f0-9-]+$/));
+
+    if (isPublicPath || isPublicApiRead) {
+      return { user: null, session: null };
+    }
+
+    const sessionId = cookie.session?.value;
+
+    if (!sessionId || typeof sessionId !== 'string') {
       return { user: null, session: null };
     }
 
