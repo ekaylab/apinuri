@@ -16,8 +16,7 @@
     "arctic": "^3.7.0",
     "dayjs": "^1.11.18",
     "drizzle-orm": "^0.44.5",
-    "elysia": "^1.4.10",
-    "postgres": "^3.4.7"
+    "elysia": "^1.4.10"
   },
   "devDependencies": {
     "@types/bun": "^1.2.23",

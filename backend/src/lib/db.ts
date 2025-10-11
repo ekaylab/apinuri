@@ -1,5 +1,5 @@
-import postgres from 'postgres';
-import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { SQL } from 'bun';
+import { drizzle, type BunSQLDatabase } from 'drizzle-orm/bun-sql';
 import * as schema from '@/models';
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -8,11 +8,7 @@ if (!DATABASE_URL) {
   throw new Error('DATABASE_URL is required');
 }
 
-const queryClient = postgres(DATABASE_URL, {
-  ssl: { rejectUnauthorized: false },
-  connect_timeout: 10,
-  max: process.env.NODE_ENV === 'production' ? 20 : 1,
-});
+const client = new SQL(DATABASE_URL);
 
-export const db = drizzle(queryClient, { schema });
-export type DB = PostgresJsDatabase<typeof schema>;
+export const db = drizzle({ client, schema });
+export type DB = BunSQLDatabase<typeof schema>;
