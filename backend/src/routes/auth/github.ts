@@ -66,7 +66,7 @@ export const githubRoutes = new Elysia({ prefix: '/github' })
           .update(userIdentities)
           .set({
             access_token: tokens.accessToken(),
-            refresh_token: tokens.refreshToken(),
+            refresh_token: tokens.hasRefreshToken() ? tokens.refreshToken() : null,
           })
           .where(
             and(
@@ -75,25 +75,43 @@ export const githubRoutes = new Elysia({ prefix: '/github' })
             )
           );
       } else {
-        // New user - create user and identity
-        const [newUser] = await db
-          .insert(users)
-          .values({
-            email,
-            name: githubUser.name,
-            avatar_url: githubUser.avatar_url,
-          })
-          .returning();
-
-        await db.insert(userIdentities).values({
-          user_id: newUser.id,
-          provider: 'github',
-          provider_user_id: githubUser.id.toString(),
-          access_token: tokens.accessToken(),
-          refresh_token: tokens.refreshToken(),
+        // Check if user exists by email
+        let existingUser = await db.query.users.findFirst({
+          where: eq(users.email, email),
         });
 
-        user = newUser;
+        if (existingUser) {
+          // User exists but no GitHub identity - link it
+          await db.insert(userIdentities).values({
+            user_id: existingUser.id,
+            provider: 'github',
+            provider_user_id: githubUser.id.toString(),
+            access_token: tokens.accessToken(),
+            refresh_token: tokens.hasRefreshToken() ? tokens.refreshToken() : null,
+          });
+
+          user = existingUser;
+        } else {
+          // New user - create user and identity
+          const [newUser] = await db
+            .insert(users)
+            .values({
+              email,
+              name: githubUser.name,
+              avatar_url: githubUser.avatar_url,
+            })
+            .returning();
+
+          await db.insert(userIdentities).values({
+            user_id: newUser.id,
+            provider: 'github',
+            provider_user_id: githubUser.id.toString(),
+            access_token: tokens.accessToken(),
+            refresh_token: tokens.hasRefreshToken() ? tokens.refreshToken() : null,
+          });
+
+          user = newUser;
+        }
       }
 
       // Create session

@@ -6,7 +6,7 @@ import { routes } from '@/routes';
 import { validateSession } from '@/lib/session';
 import { db } from '@/lib/db';
 
-const config = {
+export const config = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   BASE_URL:
     process.env.NODE_ENV === 'development'

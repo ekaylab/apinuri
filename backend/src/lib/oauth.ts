@@ -1,10 +1,15 @@
 import { GitHub } from 'arctic';
 
+const BASE_URL =
+  process.env.NODE_ENV === 'development'
+    ? 'http://localhost:4000'
+    : 'https://api.apinuri.com';
+
 // Initialize Arctic GitHub OAuth
 export const github = new GitHub(
   process.env.GITHUB_CLIENT_ID!,
   process.env.GITHUB_CLIENT_SECRET!,
-  `${process.env.BASE_URL}/auth/github/callback`
+  `${BASE_URL}/auth/github/callback`
 );
 
 // Generate state for OAuth (CSRF protection)
