@@ -81,4 +81,21 @@ export const app = new Elysia()
       `${request.method} ${new URL(request.url).pathname} ${duration}ms`
     );
   })
+  .onError(({ request, error, code, set }) => {
+    const start = parseInt((set.headers['x-request-start'] as string) || '0');
+    const duration = Date.now() - start;
+    const pathname = new URL(request.url).pathname;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    console.error(
+      `${request.method} ${pathname} ${set.status || 500} ${duration}ms - Error: ${errorMessage || code}`
+    );
+
+    // Return structured error response
+    return {
+      error: code,
+      message: errorMessage || 'Internal server error',
+      path: pathname,
+    };
+  })
   .use(routes);

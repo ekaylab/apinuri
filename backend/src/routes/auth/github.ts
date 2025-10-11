@@ -1,13 +1,13 @@
 import { Elysia } from 'elysia';
 import { github, generateState, getGitHubUser, getGitHubUserEmail } from '@/lib/oauth';
-import { createSession, invalidateSession } from '@/lib/session';
+import { createSession } from '@/lib/session';
 import { users, userIdentities } from '@/models/user';
 import { eq, and } from 'drizzle-orm';
 import type { AppContext } from '@/types/context';
 
-export const authRoutes = new Elysia({ prefix: '/auth' })
+export const githubRoutes = new Elysia({ prefix: '/github' })
   // GitHub OAuth - Initiate
-  .get('/github', async (ctx) => {
+  .get('/', async (ctx) => {
     const { cookie, redirect, config } = ctx as unknown as AppContext;
     const state = generateState();
     const url = await github.createAuthorizationURL(state, ['user:email']);
@@ -23,7 +23,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   })
 
   // GitHub OAuth - Callback
-  .get('/github/callback', async (ctx) => {
+  .get('/callback', async (ctx) => {
     const { query, cookie, redirect, db, config } = ctx as unknown as AppContext;
     const { code, state } = query as { code?: string; state?: string };
     const storedState = cookie.oauth_state.value;
@@ -114,33 +114,4 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       console.error('GitHub OAuth error:', error);
       return redirect(`${config.HOME_URL}/login?error=github_auth_failed`);
     }
-  })
-
-  // Logout
-  .post('/logout', async (ctx) => {
-    const { cookie } = ctx as unknown as AppContext;
-    const sessionId = cookie.session?.value;
-
-    if (sessionId && typeof sessionId === 'string') {
-      await invalidateSession(sessionId);
-      cookie.session.remove();
-    }
-
-    return { success: true };
-  })
-
-  // Get current user
-  .get('/me', async (ctx) => {
-    const { user } = ctx as unknown as AppContext;
-    if (!user) {
-      return { error: 'Not authenticated' };
-    }
-
-    return { user };
-  }, {
-    detail: {
-      tags: ['Auth'],
-      summary: 'Get current user',
-      description: 'Get the currently authenticated user',
-    },
   });
