@@ -15,7 +15,7 @@ import { users } from './user';
 export const sessions = pgTable(
   'sessions',
   {
-    id: text('id').primaryKey(),
+    id: uuid('id').primaryKey().defaultRandom(),
     user_id: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
