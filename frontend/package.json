@@ -8,6 +8,8 @@
     "start": "next start"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "@uiw/react-json-view": "^2.0.0-alpha.39",
     "next": "15.5.4",
     "react": "19.1.0",
     "react-dom": "19.1.0"

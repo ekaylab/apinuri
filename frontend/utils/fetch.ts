@@ -4,7 +4,7 @@ export const createFetch = (baseUrl: string, commonHeaders: Record<string, strin
   return async (
     endpoint: string,
     options: {
-      method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+      method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD';
       headers?: Record<string, string>;
       credentials?: RequestCredentials;
       body?: BodyInit | null | undefined;
