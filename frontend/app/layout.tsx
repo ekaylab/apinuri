@@ -1,11 +1,7 @@
-import type { Metadata } from 'next';
+'use client';
+
 import './index.css';
 import { AuthProvider } from '@/contexts/AuthContext';
-
-export const metadata: Metadata = {
-  title: 'API누리',
-  description: '대한민국 1위 API 마켓플레이스',
-};
 
 export default function RootLayout({
   children,

@@ -19,8 +19,11 @@ export const createFetch = (baseUrl: string, commonHeaders: Record<string, strin
       ? endpoint
       : `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
+    const method = options.method || 'GET';
+
     const res = await fetch(url, {
       ...options,
+      method,
       headers: {
         ...commonHeaders,
         ...options.headers,
@@ -29,7 +32,7 @@ export const createFetch = (baseUrl: string, commonHeaders: Record<string, strin
       next: options.next || undefined,
       body:
         options.body ||
-        (options.method !== 'GET' && commonHeaders['Content-Type'] === 'application/json'
+        (method !== 'GET' && method !== 'HEAD' && commonHeaders['Content-Type'] === 'application/json'
           ? JSON.stringify({})
           : undefined),
     });

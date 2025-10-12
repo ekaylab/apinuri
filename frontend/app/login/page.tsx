@@ -9,15 +9,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen flex items-center justify-center bg-white">
       <div className="max-w-md w-full mx-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="border border-gray-200 rounded-lg p-8">
           {/* Logo/Title */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">
+            <h1 className="text-3xl font-bold text-black mb-2">
               API누리
             </h1>
-            <p className="text-slate-600">
+            <p className="text-gray-600">
               대한민국 1위 API 마켓플레이스
             </p>
           </div>
@@ -25,7 +25,7 @@ export default function LoginPage() {
           {/* Login Button */}
           <button
             onClick={handleGitHubLogin}
-            className="w-full flex items-center justify-center gap-3 bg-slate-900 hover:bg-slate-800 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200"
+            className="w-full flex items-center justify-center gap-3 bg-black hover:bg-gray-800 text-white font-medium py-2.5 px-4 rounded-md transition-colors"
           >
             <svg
               className="w-5 h-5"
@@ -43,13 +43,13 @@ export default function LoginPage() {
           </button>
 
           {/* Info Text */}
-          <p className="text-xs text-slate-500 text-center mt-6">
+          <p className="text-xs text-gray-500 text-center mt-6">
             계정이 없으신가요? GitHub 로그인 시 자동으로 생성됩니다.
           </p>
         </div>
 
         {/* Features */}
-        <div className="mt-8 text-center text-sm text-slate-600 space-y-2">
+        <div className="mt-8 text-center text-sm text-gray-600 space-y-2">
           <p>✓ API 등록 및 관리</p>
           <p>✓ 프록시 서비스 제공</p>
           <p>✓ 사용량 통계 및 분석</p>

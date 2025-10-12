@@ -49,7 +49,7 @@ export const app = new Elysia()
     })
   )
   .derive(async ({ cookie, path }) => {
-    const publicPaths = ['/swagger', '/auth/', '/api/keys/generate', '/proxy/'];
+    const publicPaths = ['/swagger', '/auth/github', '/api/keys/generate', '/proxy/'];
     const isPublicPath = publicPaths.some(p => path.startsWith(p));
 
     const isPublicApiRead =
