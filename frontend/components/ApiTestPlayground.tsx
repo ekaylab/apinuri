@@ -17,6 +17,7 @@ interface ApiTestPlaygroundProps {
   path: string;
   method: string;
   defaultHeaders?: Record<string, string>;
+  onTestComplete?: (success: boolean) => void;
 }
 
 export default function ApiTestPlayground({
@@ -24,6 +25,7 @@ export default function ApiTestPlayground({
   path,
   method,
   defaultHeaders = {},
+  onTestComplete,
 }: ApiTestPlaygroundProps) {
   const [pathParams, setPathParams] = useState<Record<string, string>>({});
   const [queryParams, setQueryParams] = useState<Record<string, string>>({});
@@ -64,48 +66,78 @@ export default function ApiTestPlayground({
     setResponse(null);
 
     try {
-      const url = buildUrl();
-      const options: RequestInit = {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...headers,
-        },
-      };
-
-      if (method !== 'GET' && method !== 'HEAD' && requestBody.trim()) {
+      // Validate JSON body if present
+      let parsedBody = undefined;
+      if (method !== 'GET' && method !== 'HEAD' && requestBody.trim() && requestBody.trim() !== '{\n  \n}') {
         try {
-          JSON.parse(requestBody); // Validate JSON
-          options.body = requestBody;
+          parsedBody = JSON.parse(requestBody);
         } catch {
           setError('Invalid JSON in request body');
           setIsLoading(false);
+          onTestComplete?.(false);
           return;
         }
       }
 
-      const startTime = Date.now();
-      const res = await fetch(url, options);
-      const duration = Date.now() - startTime;
+      // Build query string from query params
+      const queryString = Object.entries(queryParams)
+        .filter(([_, value]) => value)
+        .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+        .join('&');
 
-      const contentType = res.headers.get('content-type');
-      let data;
+      // Replace path parameters in the path
+      let finalPath = path;
+      Object.entries(pathParams).forEach(([key, value]) => {
+        finalPath = finalPath.replace(`{${key}}`, value);
+      });
 
-      if (contentType?.includes('application/json')) {
-        data = await res.json();
-      } else {
-        data = await res.text();
+      // Add query string to path
+      if (queryString) {
+        finalPath = `${finalPath}?${queryString}`;
       }
 
-      setResponse({
-        status: res.status,
-        statusText: res.statusText,
-        headers: Object.fromEntries(res.headers.entries()),
-        data,
-        duration,
+      // Use backend proxy to avoid CORS
+      const res = await fetch('/api/proxy-test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          baseUrl,
+          path: finalPath,
+          method,
+          headers,
+          body: parsedBody,
+        }),
       });
+
+      const result = await res.json();
+
+      // Check if the request itself failed (500 from our backend)
+      if (!res.ok) {
+        setError(result.message || result.error || 'Failed to make request');
+        onTestComplete?.(false);
+        setIsLoading(false);
+        return;
+      }
+
+      // Set the response from the proxied request
+      const responseData = {
+        status: result.status,
+        statusText: result.statusText,
+        headers: result.headers,
+        data: result.data,
+        duration: result.duration,
+      };
+      setResponse(responseData);
+
+      // Consider test successful if status is 2xx or 3xx
+      const success = result.status >= 200 && result.status < 400;
+      onTestComplete?.(success);
     } catch (err: any) {
       setError(err.message || 'Failed to make request');
+      onTestComplete?.(false);
     } finally {
       setIsLoading(false);
     }

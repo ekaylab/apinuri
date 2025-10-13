@@ -5,6 +5,88 @@ import { and, eq } from 'drizzle-orm';
 import type { AppContext } from '@/types/context';
 
 export const proxyRoutes = new Elysia()
+  // Test endpoint without API key (requires authentication)
+  .post(
+    '/proxy/test',
+    async (ctx) => {
+      const { body, user, set } = ctx as unknown as AppContext;
+
+      if (!user) {
+        set.status = 401;
+        return { error: 'Authentication required' };
+      }
+
+      const { baseUrl, path, method, headers: customHeaders, body: requestBody } = body as any;
+
+      if (!baseUrl || !path || !method) {
+        set.status = 400;
+        return { error: 'baseUrl, path, and method are required' };
+      }
+
+      const startTime = Date.now();
+
+      try {
+        // Build the full URL
+        const fullUrl = `${baseUrl}${path}`;
+
+        // Prepare headers
+        const headers: Record<string, string> = {
+          'user-agent': 'apinuri-test/1.0',
+          ...(customHeaders || {}),
+        };
+
+        // Make the request
+        const response = await fetch(fullUrl, {
+          method: method,
+          headers,
+          body: requestBody ? JSON.stringify(requestBody) : undefined,
+        });
+
+        const responseTime = Date.now() - startTime;
+
+        // Get response body
+        const responseContentType = response.headers.get('content-type');
+        let responseBody;
+
+        if (responseContentType?.includes('application/json')) {
+          responseBody = await response.json();
+        } else {
+          responseBody = await response.text();
+        }
+
+        return {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          data: responseBody,
+          duration: responseTime,
+        };
+      } catch (error) {
+        const responseTime = Date.now() - startTime;
+
+        set.status = 500;
+        return {
+          error: 'Request failed',
+          message: error instanceof Error ? error.message : 'Unknown error',
+          duration: responseTime,
+        };
+      }
+    },
+    {
+      body: t.Object({
+        baseUrl: t.String({ description: 'Base URL of the API' }),
+        path: t.String({ description: 'Path to test (e.g., "/forecast")' }),
+        method: t.String({ description: 'HTTP method' }),
+        headers: t.Optional(t.Record(t.String(), t.String(), { description: 'Custom headers' })),
+        body: t.Optional(t.Any({ description: 'Request body' })),
+      }),
+      detail: {
+        tags: ['Proxy'],
+        summary: 'Test endpoint',
+        description: 'Test an endpoint without API key (authenticated users only)',
+      },
+    }
+  )
   // Proxy requests to registered APIs
   .all(
     '/proxy/:slug/*',

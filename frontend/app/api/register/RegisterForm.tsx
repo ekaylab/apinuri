@@ -25,6 +25,8 @@ interface Endpoint {
   queryParams?: Parameter[];
   pathParams?: Parameter[];
   bodySchema?: string; // JSON string of body example
+  tested?: boolean; // Track if endpoint has been successfully tested
+  testStatus?: 'success' | 'error'; // Test result status
 }
 
 export default function RegisterForm() {
@@ -72,6 +74,20 @@ export default function RegisterForm() {
 
   // Test playground state
   const [selectedEndpointIndex, setSelectedEndpointIndex] = useState<number | null>(null);
+
+  // Mark endpoint as successfully tested
+  const markEndpointAsTested = (index: number, success: boolean) => {
+    const updatedEndpoints = [...endpoints];
+    updatedEndpoints[index] = {
+      ...updatedEndpoints[index],
+      tested: true,
+      testStatus: success ? 'success' : 'error',
+    };
+    setEndpoints(updatedEndpoints);
+  };
+
+  // Check if all endpoints have been successfully tested
+  const allEndpointsTested = endpoints.length > 0 && endpoints.every((ep) => ep.tested && ep.testStatus === 'success');
 
   const addHeader = () => {
     if (headerKey && headerValue) {
@@ -665,8 +681,8 @@ export default function RegisterForm() {
                       </div>
                     )}
 
-                    {/* Show parameter counts */}
-                    <div className="flex gap-2 mt-2">
+                    {/* Show parameter counts and test status */}
+                    <div className="flex gap-2 mt-2 flex-wrap">
                       {endpoint.queryParams && endpoint.queryParams.length > 0 && (
                         <span className={`text-xs px-2 py-0.5 rounded ${selectedEndpointIndex === index ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-700'}`}>
                           {endpoint.queryParams.length} Query Param{endpoint.queryParams.length > 1 ? 's' : ''}
@@ -680,6 +696,21 @@ export default function RegisterForm() {
                       {endpoint.bodySchema && (
                         <span className={`text-xs px-2 py-0.5 rounded ${selectedEndpointIndex === index ? 'bg-purple-900 text-purple-200' : 'bg-purple-100 text-purple-700'}`}>
                           Body Schema
+                        </span>
+                      )}
+                      {endpoint.tested && endpoint.testStatus === 'success' && (
+                        <span className={`text-xs px-2 py-0.5 rounded ${selectedEndpointIndex === index ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-700'}`}>
+                          ✓ Tested
+                        </span>
+                      )}
+                      {endpoint.tested && endpoint.testStatus === 'error' && (
+                        <span className={`text-xs px-2 py-0.5 rounded ${selectedEndpointIndex === index ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-700'}`}>
+                          ✗ Failed
+                        </span>
+                      )}
+                      {!endpoint.tested && (
+                        <span className={`text-xs px-2 py-0.5 rounded ${selectedEndpointIndex === index ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                          Not Tested
                         </span>
                       )}
                     </div>
@@ -709,6 +740,7 @@ export default function RegisterForm() {
                     path={selectedEndpoint.path}
                     method={selectedEndpoint.method}
                     defaultHeaders={headers}
+                    onTestComplete={(success) => markEndpointAsTested(selectedEndpointIndex, success)}
                   />
                 ) : selectedEndpointIndex !== null && selectedEndpoint && !baseUrl ? (
                   <div className="p-8 border border-gray-300 rounded-lg bg-gray-50 text-center">
@@ -742,21 +774,30 @@ export default function RegisterForm() {
         )}
 
         {/* Submit Button */}
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            disabled={isSubmitting || endpoints.length === 0}
-            className="px-6 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            {isSubmitting ? '등록 중...' : 'API 등록'}
-          </button>
-          <button
-            type="button"
-            onClick={() => router.push('/')}
-            className="px-6 py-2 text-sm font-medium text-black bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-          >
-            취소
-          </button>
+        <div className="space-y-3">
+          {endpoints.length > 0 && !allEndpointsTested && (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-sm text-yellow-800">
+                모든 엔드포인트를 테스트한 후 등록할 수 있습니다. ({endpoints.filter(ep => ep.tested && ep.testStatus === 'success').length}/{endpoints.length} 테스트 완료)
+              </p>
+            </div>
+          )}
+          <div className="flex gap-4">
+            <button
+              type="submit"
+              disabled={isSubmitting || endpoints.length === 0 || !allEndpointsTested}
+              className="px-6 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? '등록 중...' : 'API 등록'}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/')}
+              className="px-6 py-2 text-sm font-medium text-black bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            >
+              취소
+            </button>
+          </div>
         </div>
       </form>
     </main>
