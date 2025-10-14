@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/utils/fetch';
 import tryCatch from '@/utils/tryCatch';
@@ -18,19 +18,32 @@ interface Parameter {
 }
 
 interface Endpoint {
+  id?: string;
   path: string;
   method: HttpMethod;
   name: string;
   description?: string;
   queryParams?: Parameter[];
   pathParams?: Parameter[];
-  bodySchema?: string; // JSON string of body example
-  tested?: boolean; // Track if endpoint has been successfully tested
-  testStatus?: 'success' | 'error'; // Test result status
+  bodySchema?: string;
+  tested?: boolean;
+  testStatus?: 'success' | 'error';
 }
 
-export default function RegisterForm() {
+interface Api {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string;
+  base_url: string;
+  category?: string;
+  headers?: Record<string, string>;
+  endpoints: Endpoint[];
+}
+
+export default function EditApiForm({ apiId }: { apiId: string }) {
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -75,7 +88,36 @@ export default function RegisterForm() {
   // Test playground state
   const [selectedEndpointIndex, setSelectedEndpointIndex] = useState<number | null>(null);
 
-  // Mark endpoint as successfully tested
+  // Fetch API data on mount
+  useEffect(() => {
+    const fetchApi = async () => {
+      setIsLoading(true);
+      const { data, error: fetchError } = await tryCatch(
+        apiFetch(`/api/${apiId}`, {
+          credentials: 'include',
+        })
+      );
+
+      if (fetchError || !data) {
+        setError('Failed to load API data');
+        setIsLoading(false);
+        return;
+      }
+
+      // Populate form with existing data
+      setSlug(data.slug || '');
+      setName(data.name || '');
+      setDescription(data.description || '');
+      setBaseUrl(data.base_url || '');
+      setCategory(data.category || '');
+      setHeaders(data.headers || {});
+      setEndpoints(data.endpoints || []);
+      setIsLoading(false);
+    };
+
+    fetchApi();
+  }, [apiId]);
+
   const markEndpointAsTested = (index: number, success: boolean) => {
     const updatedEndpoints = [...endpoints];
     updatedEndpoints[index] = {
@@ -85,9 +127,6 @@ export default function RegisterForm() {
     };
     setEndpoints(updatedEndpoints);
   };
-
-  // Check if all endpoints have been successfully tested
-  const allEndpointsTested = endpoints.length > 0 && endpoints.every((ep) => ep.tested && ep.testStatus === 'success');
 
   const addHeader = () => {
     if (headerKey && headerValue) {
@@ -103,7 +142,6 @@ export default function RegisterForm() {
     setHeaders(newHeaders);
   };
 
-  // Parameter management functions
   const addQueryParam = () => {
     if (!queryParamName) {
       alert('파라미터 이름을 입력해주세요.');
@@ -119,7 +157,6 @@ export default function RegisterForm() {
         example: queryParamExample || undefined,
       },
     ]);
-    // Reset form
     setQueryParamName('');
     setQueryParamType('string');
     setQueryParamRequired(true);
@@ -146,7 +183,6 @@ export default function RegisterForm() {
         example: pathParamExample || undefined,
       },
     ]);
-    // Reset form
     setPathParamName('');
     setPathParamType('string');
     setPathParamRequired(true);
@@ -158,13 +194,7 @@ export default function RegisterForm() {
     setPathParams(pathParams.filter((_, i) => i !== index));
   };
 
-  // Auto-detect path parameters from endpoint path
-  const extractPathParamNames = (path: string): string[] => {
-    const matches = path.match(/\{([^}]+)\}/g);
-    return matches ? matches.map((m) => m.slice(1, -1)) : [];
-  };
-
-  const addEndpoint = () => {
+  const addEndpoint = async () => {
     if (!baseUrl) {
       alert('베이스 URL을 먼저 입력해주세요.');
       return;
@@ -188,18 +218,32 @@ export default function RegisterForm() {
       }
     }
 
-    setEndpoints([
-      ...endpoints,
-      {
-        path: endpointPath,
-        method: endpointMethod,
-        name: endpointName,
-        description: endpointDescription || undefined,
-        queryParams: queryParams.length > 0 ? queryParams : undefined,
-        pathParams: pathParams.length > 0 ? pathParams : undefined,
-        bodySchema: (bodySchema.trim() !== '{\n  \n}' && bodySchema.trim() !== '') ? bodySchema : undefined,
-      },
-    ]);
+    const newEndpoint: Endpoint = {
+      path: endpointPath,
+      method: endpointMethod,
+      name: endpointName,
+      description: endpointDescription || undefined,
+      queryParams: queryParams.length > 0 ? queryParams : undefined,
+      pathParams: pathParams.length > 0 ? pathParams : undefined,
+      bodySchema: (bodySchema.trim() !== '{\n  \n}' && bodySchema.trim() !== '') ? bodySchema : undefined,
+    };
+
+    // Call API to add endpoint
+    const { data, error: fetchError } = await tryCatch(
+      apiFetch(`/api/${apiId}/endpoints`, {
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify(newEndpoint),
+      })
+    );
+
+    if (fetchError) {
+      alert('엔드포인트 추가 실패: ' + (fetchError as any).message);
+      return;
+    }
+
+    // Add the new endpoint to the list with its ID
+    setEndpoints([...endpoints, { ...newEndpoint, id: data.id }]);
 
     // Reset all endpoint fields
     setEndpointPath('');
@@ -211,7 +255,24 @@ export default function RegisterForm() {
     setBodySchema('{\n  \n}');
   };
 
-  const removeEndpoint = (index: number) => {
+  const removeEndpoint = async (index: number) => {
+    const endpoint = endpoints[index];
+
+    if (endpoint.id) {
+      // Call API to delete endpoint
+      const { error: fetchError } = await tryCatch(
+        apiFetch(`/api/${apiId}/endpoints/${endpoint.id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
+      );
+
+      if (fetchError) {
+        alert('엔드포인트 삭제 실패: ' + (fetchError as any).message);
+        return;
+      }
+    }
+
     setEndpoints(endpoints.filter((_, i) => i !== index));
     if (selectedEndpointIndex === index) {
       setSelectedEndpointIndex(null);
@@ -232,8 +293,8 @@ export default function RegisterForm() {
     setIsSubmitting(true);
 
     const { data, error: fetchError } = await tryCatch(
-      apiFetch('/api/register', {
-        method: 'POST',
+      apiFetch(`/api/${apiId}`, {
+        method: 'PATCH',
         credentials: 'include',
         body: JSON.stringify({
           slug,
@@ -242,7 +303,6 @@ export default function RegisterForm() {
           base_url: baseUrl,
           category: category || undefined,
           headers: Object.keys(headers).length > 0 ? headers : undefined,
-          endpoints: endpoints.length > 0 ? endpoints : undefined,
         }),
       })
     );
@@ -250,7 +310,7 @@ export default function RegisterForm() {
     setIsSubmitting(false);
 
     if (fetchError) {
-      setError((fetchError as any).message || 'Failed to register API');
+      setError((fetchError as any).message || 'Failed to update API');
       return;
     }
 
@@ -259,11 +319,21 @@ export default function RegisterForm() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <main className="max-w-7xl mx-auto px-6 py-12">
+        <div className="text-center">
+          <p className="text-lg text-gray-600">로딩 중...</p>
+        </div>
+      </main>
+    );
+  }
+
   const selectedEndpoint = selectedEndpointIndex !== null ? endpoints[selectedEndpointIndex] : null;
 
   return (
     <main className="max-w-7xl mx-auto px-6 py-12">
-      <h1 className="text-3xl font-bold text-black mb-8">API 등록</h1>
+      <h1 className="text-3xl font-bold text-black mb-8">API 수정</h1>
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Basic Info Section */}
@@ -298,9 +368,6 @@ export default function RegisterForm() {
             />
             <p className="text-xs text-gray-500 mt-1">
               이 API 전체를 식별하는 고유한 ID입니다. URL에 사용되므로 소문자, 숫자, 하이픈만 사용 가능합니다.
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              예: "날씨 API"의 슬러그는 "weather-api", "결제 서비스"는 "payment-service"
             </p>
           </div>
 
@@ -398,17 +465,11 @@ export default function RegisterForm() {
               엔드포인트 <span className="text-red-500">*</span>
             </h2>
             <p className="text-sm text-gray-600">API가 제공하는 엔드포인트를 정의하고 테스트하세요</p>
-            <p className="text-xs text-gray-500 mt-2">
-              엔드포인트는 API 내에서 실행할 수 있는 개별 기능입니다. 하나의 API는 여러 개의 엔드포인트를 가질 수 있습니다.
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              예: 날씨 API → 엔드포인트 1) GET /forecast (예보 조회), 엔드포인트 2) GET /current (현재 날씨)
-            </p>
           </div>
 
           {/* Add Endpoint Form */}
           <div className="space-y-4 p-6 bg-white border-2 border-gray-300 rounded-lg">
-            <h3 className="text-lg font-semibold text-black">새 엔드포인트 정의</h3>
+            <h3 className="text-lg font-semibold text-black">새 엔드포인트 추가</h3>
 
             {/* Basic Endpoint Info */}
             <div className="space-y-3">
@@ -455,7 +516,6 @@ export default function RegisterForm() {
                 <span className="text-xs text-gray-500">예: ?city=seoul&days=7</span>
               </div>
 
-              {/* Add Query Param Form */}
               <div className="grid grid-cols-12 gap-2">
                 <input
                   type="text"
@@ -500,7 +560,6 @@ export default function RegisterForm() {
                 </button>
               </div>
 
-              {/* Query Params List */}
               {queryParams.length > 0 && (
                 <div className="space-y-2">
                   {queryParams.map((param, index) => (
@@ -535,7 +594,6 @@ export default function RegisterForm() {
                 <span className="text-xs text-gray-500">예: /users/{'{'}id{'}'}</span>
               </div>
 
-              {/* Add Path Param Form */}
               <div className="grid grid-cols-12 gap-2">
                 <input
                   type="text"
@@ -580,7 +638,6 @@ export default function RegisterForm() {
                 </button>
               </div>
 
-              {/* Path Params List */}
               {pathParams.length > 0 && (
                 <div className="space-y-2">
                   {pathParams.map((param, index) => (
@@ -608,7 +665,7 @@ export default function RegisterForm() {
               )}
             </div>
 
-            {/* Body Schema Section (only for POST/PUT/PATCH) */}
+            {/* Body Schema Section */}
             {(endpointMethod === 'POST' || endpointMethod === 'PUT' || endpointMethod === 'PATCH') && (
               <div className="space-y-3 pt-4 border-t border-gray-200">
                 <div className="flex items-center justify-between">
@@ -630,9 +687,6 @@ export default function RegisterForm() {
                     automaticLayout: true,
                   }}
                 />
-                <p className="text-xs text-gray-500">
-                  예시: {`{ "city": "seoul", "days": 7, "units": "metric" }`}
-                </p>
               </div>
             )}
 
@@ -656,7 +710,7 @@ export default function RegisterForm() {
                 <h3 className="text-sm font-semibold text-black mb-2">등록된 엔드포인트</h3>
                 {endpoints.map((endpoint, index) => (
                   <div
-                    key={index}
+                    key={endpoint.id || index}
                     className={`p-4 rounded-md border-2 transition-colors cursor-pointer ${
                       selectedEndpointIndex === index
                         ? 'bg-black text-white border-black'
@@ -681,7 +735,6 @@ export default function RegisterForm() {
                       </div>
                     )}
 
-                    {/* Show parameter counts and test status */}
                     <div className="flex gap-2 mt-2 flex-wrap">
                       {endpoint.queryParams && endpoint.queryParams.length > 0 && (
                         <span className={`text-xs px-2 py-0.5 rounded ${selectedEndpointIndex === index ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-700'}`}>
@@ -696,21 +749,6 @@ export default function RegisterForm() {
                       {endpoint.bodySchema && (
                         <span className={`text-xs px-2 py-0.5 rounded ${selectedEndpointIndex === index ? 'bg-purple-900 text-purple-200' : 'bg-purple-100 text-purple-700'}`}>
                           Body Schema
-                        </span>
-                      )}
-                      {endpoint.tested && endpoint.testStatus === 'success' && (
-                        <span className={`text-xs px-2 py-0.5 rounded ${selectedEndpointIndex === index ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-700'}`}>
-                          ✓ Tested
-                        </span>
-                      )}
-                      {endpoint.tested && endpoint.testStatus === 'error' && (
-                        <span className={`text-xs px-2 py-0.5 rounded ${selectedEndpointIndex === index ? 'bg-red-900 text-red-200' : 'bg-red-100 text-red-700'}`}>
-                          ✗ Failed
-                        </span>
-                      )}
-                      {!endpoint.tested && (
-                        <span className={`text-xs px-2 py-0.5 rounded ${selectedEndpointIndex === index ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
-                          Not Tested
                         </span>
                       )}
                     </div>
@@ -774,30 +812,21 @@ export default function RegisterForm() {
         )}
 
         {/* Submit Button */}
-        <div className="space-y-3">
-          {endpoints.length > 0 && !allEndpointsTested && (
-            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-              <p className="text-sm text-yellow-800">
-                모든 엔드포인트를 테스트한 후 등록할 수 있습니다. ({endpoints.filter(ep => ep.tested && ep.testStatus === 'success').length}/{endpoints.length} 테스트 완료)
-              </p>
-            </div>
-          )}
-          <div className="flex gap-4">
-            <button
-              type="submit"
-              disabled={isSubmitting || endpoints.length === 0 || !allEndpointsTested}
-              className="px-6 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? '등록 중...' : 'API 등록'}
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push('/')}
-              className="px-6 py-2 text-sm font-medium text-black bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-            >
-              취소
-            </button>
-          </div>
+        <div className="flex gap-4">
+          <button
+            type="submit"
+            disabled={isSubmitting || endpoints.length === 0}
+            className="px-6 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? '수정 중...' : 'API 수정 완료'}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/my-apis')}
+            className="px-6 py-2 text-sm font-medium text-black bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+          >
+            취소
+          </button>
         </div>
       </form>
     </main>

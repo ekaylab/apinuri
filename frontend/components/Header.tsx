@@ -19,6 +19,12 @@ export async function Header() {
             {user && (
               <nav className="flex items-center gap-8">
                 <Link
+                  href="/my-apis"
+                  className="text-sm text-gray-600 hover:text-black transition-colors"
+                >
+                  내 API
+                </Link>
+                <Link
                   href="/api/register"
                   className="text-sm text-gray-600 hover:text-black transition-colors"
                 >

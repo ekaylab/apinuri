@@ -97,7 +97,7 @@ export default function ApiTestPlayground({
       }
 
       // Use backend proxy to avoid CORS
-      const res = await fetch('/api/proxy-test', {
+      const res = await fetch('/proxy/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

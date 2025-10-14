@@ -56,6 +56,14 @@ const ApiParamsSchema = t.Object({
   apiId: t.String({ format: 'uuid' }),
 });
 
+const EndpointParamsSchema = t.Object({
+  apiId: t.String({ format: 'uuid' }),
+  endpointId: t.String({ format: 'uuid' }),
+});
+
+const AddEndpointBodySchema = EndpointSchema;
+const UpdateEndpointBodySchema = t.Partial(EndpointSchema);
+
 export const apisRoutes = new Elysia()
   // Register new API (requires authentication)
   .post(
@@ -221,6 +229,42 @@ export const apisRoutes = new Elysia()
     }
   )
 
+  // Get user's APIs (requires authentication)
+  .get(
+    '/my-apis',
+    async ctx => {
+      const { user, db, config, status } = ctx as unknown as AppContext;
+
+      if (!user) {
+        return status(401, { error: 'Authentication required' });
+      }
+
+      const userApis = await db.query.apis.findMany({
+        where: eq(apis.user_id, user.id),
+        with: {
+          endpoints: {
+            where: eq(apiEndpoints.is_active, true),
+          },
+        },
+        orderBy: (apis, { desc }) => [desc(apis.created_at)],
+      });
+
+      const apisWithProxyUrl = userApis.map((api: any) => ({
+        ...api,
+        proxy_url: `${config.BASE_URL}/proxy/${api.slug}`,
+      }));
+
+      return { apis: apisWithProxyUrl };
+    },
+    {
+      detail: {
+        tags: ['APIs'],
+        summary: 'Get my APIs',
+        description: 'Get all APIs owned by the authenticated user',
+      },
+    }
+  )
+
   // List all public APIs (no auth required)
   .get(
     '',
@@ -285,6 +329,169 @@ export const apisRoutes = new Elysia()
         tags: ['APIs'],
         summary: 'Get API details',
         description: 'Get API details by ID including endpoints',
+      },
+    }
+  )
+
+  // Add a new endpoint to an API
+  .post(
+    '/:apiId/endpoints',
+    async ctx => {
+      const { params, body, user, db, status } = ctx as unknown as AppContext;
+      if (!user) {
+        return status(401, { error: 'Authentication required' });
+      }
+
+      const { apiId } = params;
+
+      // Check if API exists and belongs to user
+      const api = await db.query.apis.findFirst({
+        where: eq(apis.id, apiId),
+      });
+
+      if (!api) {
+        return status(404, { error: 'API not found' });
+      }
+
+      if (api.user_id !== user.id) {
+        return status(403, { error: 'You do not own this API' });
+      }
+
+      const bodyData = body as any;
+      const [newEndpoint] = await db
+        .insert(apiEndpoints)
+        .values({
+          api_id: apiId,
+          ...bodyData,
+          is_active: true,
+        })
+        .returning();
+
+      return {
+        ...newEndpoint,
+        message: 'Endpoint added successfully',
+      };
+    },
+    {
+      params: ApiParamsSchema,
+      body: AddEndpointBodySchema,
+      detail: {
+        tags: ['APIs'],
+        summary: 'Add endpoint to API',
+        description: 'Add a new endpoint to an existing API',
+      },
+    }
+  )
+
+  // Update an endpoint
+  .patch(
+    '/:apiId/endpoints/:endpointId',
+    async ctx => {
+      const { params, body, user, db, status } = ctx as unknown as AppContext;
+      if (!user) {
+        return status(401, { error: 'Authentication required' });
+      }
+
+      const { apiId, endpointId } = params;
+
+      // Check if API exists and belongs to user
+      const api = await db.query.apis.findFirst({
+        where: eq(apis.id, apiId),
+      });
+
+      if (!api) {
+        return status(404, { error: 'API not found' });
+      }
+
+      if (api.user_id !== user.id) {
+        return status(403, { error: 'You do not own this API' });
+      }
+
+      // Check if endpoint exists and belongs to this API
+      const endpoint = await db.query.apiEndpoints.findFirst({
+        where: and(
+          eq(apiEndpoints.id, endpointId),
+          eq(apiEndpoints.api_id, apiId)
+        ),
+      });
+
+      if (!endpoint) {
+        return status(404, { error: 'Endpoint not found' });
+      }
+
+      const bodyData = body as any;
+      const [updatedEndpoint] = await db
+        .update(apiEndpoints)
+        .set({ ...bodyData, updated_at: new Date() })
+        .where(eq(apiEndpoints.id, endpointId))
+        .returning();
+
+      return {
+        ...updatedEndpoint,
+        message: 'Endpoint updated successfully',
+      };
+    },
+    {
+      params: EndpointParamsSchema,
+      body: UpdateEndpointBodySchema,
+      detail: {
+        tags: ['APIs'],
+        summary: 'Update endpoint',
+        description: 'Update an existing endpoint',
+      },
+    }
+  )
+
+  // Delete an endpoint
+  .delete(
+    '/:apiId/endpoints/:endpointId',
+    async ctx => {
+      const { params, user, db, status } = ctx as unknown as AppContext;
+      if (!user) {
+        return status(401, { error: 'Authentication required' });
+      }
+
+      const { apiId, endpointId } = params;
+
+      // Check if API exists and belongs to user
+      const api = await db.query.apis.findFirst({
+        where: eq(apis.id, apiId),
+      });
+
+      if (!api) {
+        return status(404, { error: 'API not found' });
+      }
+
+      if (api.user_id !== user.id) {
+        return status(403, { error: 'You do not own this API' });
+      }
+
+      // Check if endpoint exists and belongs to this API
+      const endpoint = await db.query.apiEndpoints.findFirst({
+        where: and(
+          eq(apiEndpoints.id, endpointId),
+          eq(apiEndpoints.api_id, apiId)
+        ),
+      });
+
+      if (!endpoint) {
+        return status(404, { error: 'Endpoint not found' });
+      }
+
+      // Soft delete by setting is_active to false
+      await db
+        .update(apiEndpoints)
+        .set({ is_active: false, updated_at: new Date() })
+        .where(eq(apiEndpoints.id, endpointId));
+
+      return { message: 'Endpoint deleted successfully' };
+    },
+    {
+      params: EndpointParamsSchema,
+      detail: {
+        tags: ['APIs'],
+        summary: 'Delete endpoint',
+        description: 'Delete an endpoint from an API',
       },
     }
   );
