@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation';
 import { ApiPlayground } from './ApiPlayground';
+import env from '@/env';
 
 async function getApiDetails(slug: string) {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_MAIN_API_URL}/api`, {
+    const response = await fetch(`${env.api.MAIN_API_URL}/api`, {
       cache: 'no-store',
     });
 
@@ -20,7 +21,7 @@ async function getApiDetails(slug: string) {
 
     // Fetch full details with endpoints
     const detailResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_MAIN_API_URL}/api/${api.id}`,
+      `${env.api.MAIN_API_URL}/api/${api.id}`,
       {
         cache: 'no-store',
       }
