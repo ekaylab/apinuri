@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getUser } from '@/lib/auth';
-import RegisterForm from './RegisterForm';
+import RegisterFormNew from './RegisterFormNew';
 
 export default async function RegisterApiPage() {
   const user = await getUser();
@@ -9,5 +9,5 @@ export default async function RegisterApiPage() {
     redirect('/signin');
   }
 
-  return <RegisterForm />;
+  return <RegisterFormNew />;
 }

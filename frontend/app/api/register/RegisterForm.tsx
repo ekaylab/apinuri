@@ -8,6 +8,7 @@ import ApiTestPlayground from '@/components/ApiTestPlayground';
 import Editor from '@monaco-editor/react';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD';
+type WizardStep = 'basic' | 'endpoints' | 'review';
 
 interface Parameter {
   name: string;
@@ -33,6 +34,9 @@ export default function RegisterForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Wizard state
+  const [currentStep, setCurrentStep] = useState<WizardStep>('basic');
 
   // Basic API info
   const [slug, setSlug] = useState('');
