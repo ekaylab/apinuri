@@ -1,7 +1,5 @@
 import { Elysia, t } from 'elysia';
 import { apiRequests } from '@/models/api';
-import { apiKeys } from '@/models/auth';
-import { and, eq } from 'drizzle-orm';
 import type { AppContext } from '@/types/context';
 
 export const proxyRoutes = new Elysia()
@@ -95,38 +93,6 @@ export const proxyRoutes = new Elysia()
       const startTime = Date.now();
 
       try {
-        // Validate API key
-        const xApiKey = request.headers.get('x-api-key');
-
-        if (!xApiKey) {
-          set.status = 401;
-          return {
-            error: 'API key is required',
-            message: 'Include your API key in the x-api-key header. Generate one at POST /api/keys/generate',
-          };
-        }
-
-        const apiKey = await db.query.apiKeys.findFirst({
-          where: and(
-            eq(apiKeys.key, xApiKey),
-            eq(apiKeys.is_active, true)
-          ),
-        });
-
-        if (!apiKey) {
-          set.status = 401;
-          return { error: 'Invalid API key' };
-        }
-
-        // Check if API key has expired
-        if (apiKey.expires_at && apiKey.expires_at < new Date()) {
-          set.status = 401;
-          return {
-            error: 'API key has expired',
-            message: 'Generate a new API key at POST /api/keys/generate',
-          };
-        }
-
         const { slug } = params;
         const url = new URL(request.url);
         const path = url.pathname.replace(`/proxy/${slug}/`, '');
@@ -212,14 +178,10 @@ export const proxyRoutes = new Elysia()
         const responseTime = Date.now() - startTime;
 
         // Track usage (async, don't wait)
-        const ipAddress = request.headers.get('x-forwarded-for') ||
-                         request.headers.get('x-real-ip') ||
-                         'unknown';
-
         db.insert(apiRequests)
           .values({
             api_id: api.id,
-            api_key_id: apiKey.id,
+            api_key_id: null, // No API key required for MVP
             endpoint_id: matchedEndpoint?.id || null,
             method: request.method,
             path: `/${path}${queryString}`,

@@ -52,7 +52,7 @@ export const app = new Elysia()
     const duration = Date.now() - start;
 
     console.log(
-      `${request.method} ${new URL(request.url).pathname} ${duration}ms`
+      `${request.method} ${new URL(request.url).pathname} ${set.status || 200} ${duration}ms`
     );
   })
   .onError(({ request, error, code, set }) => {
