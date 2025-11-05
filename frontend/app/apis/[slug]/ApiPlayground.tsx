@@ -271,24 +271,47 @@ export function ApiPlayground({ api }: { api: Api }) {
                   {activeTab === 'params' && (
                     <div className="space-y-6">
                       {/* Path Parameters */}
-                      {pathParamKeys.length > 0 && (
+                      {(selectedEndpoint.parameters?.pathParams?.length > 0 || pathParamKeys.length > 0) && (
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-3">경로 파라미터</label>
                           <div className="space-y-2">
-                            {pathParamKeys.map((param) => (
-                              <div key={param}>
-                                <label className="block text-xs text-gray-600 mb-1">{param}</label>
-                                <input
-                                  type="text"
-                                  value={pathParams[param] || ''}
-                                  onChange={(e) =>
-                                    setPathParams({ ...pathParams, [param]: e.target.value })
-                                  }
-                                  placeholder={`Enter ${param}`}
-                                  className="w-full px-3 py-2 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-black"
-                                />
-                              </div>
-                            ))}
+                            {selectedEndpoint.parameters?.pathParams ? (
+                              selectedEndpoint.parameters.pathParams.map((param: any) => (
+                                <div key={param.name}>
+                                  <label className="block text-xs text-gray-600 mb-1">
+                                    {param.name}
+                                    {param.required && <span className="text-red-500 ml-1">*</span>}
+                                    {param.description && (
+                                      <span className="text-gray-500 ml-2">- {param.description}</span>
+                                    )}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={pathParams[param.name] || ''}
+                                    onChange={(e) =>
+                                      setPathParams({ ...pathParams, [param.name]: e.target.value })
+                                    }
+                                    placeholder={`Enter ${param.name}`}
+                                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-black"
+                                  />
+                                </div>
+                              ))
+                            ) : (
+                              pathParamKeys.map((param) => (
+                                <div key={param}>
+                                  <label className="block text-xs text-gray-600 mb-1">{param}</label>
+                                  <input
+                                    type="text"
+                                    value={pathParams[param] || ''}
+                                    onChange={(e) =>
+                                      setPathParams({ ...pathParams, [param]: e.target.value })
+                                    }
+                                    placeholder={`Enter ${param}`}
+                                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-black"
+                                  />
+                                </div>
+                              ))
+                            )}
                           </div>
                         </div>
                       )}
@@ -297,62 +320,27 @@ export function ApiPlayground({ api }: { api: Api }) {
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-3">쿼리 파라미터</label>
                         <div className="space-y-2">
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              placeholder="key"
-                              className="flex-1 px-3 py-2 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-black"
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  const keyInput = e.currentTarget;
-                                  const valueInput = e.currentTarget.nextElementSibling as HTMLInputElement;
-                                  const key = keyInput.value;
-                                  const value = valueInput?.value || '';
-                                  if (key) {
-                                    setQueryParams({ ...queryParams, [key]: value });
-                                    keyInput.value = '';
-                                    if (valueInput) valueInput.value = '';
-                                  }
+                          {selectedEndpoint.parameters?.queryParams?.map((param: any) => (
+                            <div key={param.name}>
+                              <label className="block text-xs text-gray-600 mb-1">
+                                {param.name}
+                                {param.required && <span className="text-red-500 ml-1">*</span>}
+                                {param.description && (
+                                  <span className="text-gray-500 ml-2">- {param.description}</span>
+                                )}
+                              </label>
+                              <input
+                                type="text"
+                                value={queryParams[param.name] || ''}
+                                onChange={(e) =>
+                                  setQueryParams({ ...queryParams, [param.name]: e.target.value })
                                 }
-                              }}
-                            />
-                            <input
-                              type="text"
-                              placeholder="value"
-                              className="flex-1 px-3 py-2 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-black"
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  const valueInput = e.currentTarget;
-                                  const keyInput = e.currentTarget.previousElementSibling as HTMLInputElement;
-                                  const key = keyInput?.value || '';
-                                  const value = valueInput.value;
-                                  if (key) {
-                                    setQueryParams({ ...queryParams, [key]: value });
-                                    keyInput.value = '';
-                                    valueInput.value = '';
-                                  }
-                                }
-                              }}
-                            />
-                          </div>
-                          {Object.keys(queryParams).length > 0 && (
-                            <div className="mt-3 space-y-1 bg-gray-50 border rounded p-2">
-                              {Object.entries(queryParams).map(([key, value]) => (
-                                <div key={key} className="flex items-center justify-between text-xs">
-                                  <span className="font-mono text-gray-700">{key}: {value || '(empty)'}</span>
-                                  <button
-                                    onClick={() => {
-                                      const newParams = { ...queryParams };
-                                      delete newParams[key];
-                                      setQueryParams(newParams);
-                                    }}
-                                    className="text-red-600 hover:text-red-800"
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              ))}
+                                placeholder={`Enter ${param.name}`}
+                                className="w-full px-3 py-2 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-black"
+                              />
                             </div>
+                          )) || (
+                            <p className="text-xs text-gray-500">이 엔드포인트에는 쿼리 파라미터가 없습니다</p>
                           )}
                         </div>
                       </div>

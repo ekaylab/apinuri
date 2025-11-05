@@ -51,46 +51,84 @@ export default function RegisterFormNew() {
   // Testing state
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [showTestForm, setShowTestForm] = useState(false);
+  const [testValues, setTestValues] = useState<Record<string, string>>({});
+
+  // Parameter form state
+  const [showQueryParamForm, setShowQueryParamForm] = useState(false);
+  const [showPathParamForm, setShowPathParamForm] = useState(false);
+  const [newParamName, setNewParamName] = useState('');
+  const [newParamType, setNewParamType] = useState<'string' | 'number' | 'boolean'>('string');
+  const [newParamRequired, setNewParamRequired] = useState(false);
+  const [newParamDescription, setNewParamDescription] = useState('');
 
   const addQueryParam = () => {
-    const name = prompt('파라미터 이름 (예: city)');
-    if (!name) return;
-
-    const required = confirm('필수 파라미터인가요?');
-    const description = prompt('파라미터 설명 (선택사항)');
+    if (!newParamName.trim()) return;
 
     setCurrentQueryParams([
       ...currentQueryParams,
-      { name, type: 'string', required, description: description || undefined },
+      {
+        name: newParamName,
+        type: newParamType,
+        required: newParamRequired,
+        description: newParamDescription || undefined
+      },
     ]);
+
+    // Reset form
+    setNewParamName('');
+    setNewParamType('string');
+    setNewParamRequired(false);
+    setNewParamDescription('');
+    setShowQueryParamForm(false);
   };
 
   const addPathParam = () => {
-    const name = prompt('Path 파라미터 이름 (예: id)');
-    if (!name) return;
-
-    const required = confirm('필수 파라미터인가요?');
-    const description = prompt('파라미터 설명 (선택사항)');
+    if (!newParamName.trim()) return;
 
     setCurrentPathParams([
       ...currentPathParams,
-      { name, type: 'string', required, description: description || undefined },
+      {
+        name: newParamName,
+        type: newParamType,
+        required: newParamRequired,
+        description: newParamDescription || undefined
+      },
     ]);
+
+    // Reset form
+    setNewParamName('');
+    setNewParamType('string');
+    setNewParamRequired(false);
+    setNewParamDescription('');
+    setShowPathParamForm(false);
   };
 
-  const testEndpoint = async () => {
+  const initiateTest = () => {
     if (!baseUrl) {
-      alert('베이스 URL을 먼저 입력해주세요.');
+      setError('베이스 URL을 먼저 입력해주세요.');
       return;
     }
 
     if (!currentPath || !currentName) {
-      alert('경로와 이름을 먼저 입력해주세요.');
+      setError('경로와 이름을 먼저 입력해주세요.');
       return;
     }
 
+    // Check if there are params to test
+    if (currentPathParams.length > 0 || currentQueryParams.length > 0) {
+      setShowTestForm(true);
+      setTestValues({});
+    } else {
+      // No params, test directly
+      executeTest({});
+    }
+  };
+
+  const executeTest = async (values: Record<string, string>) => {
     setIsTesting(true);
     setTestResult(null);
+    setError('');
 
     try {
       // Build test URL
@@ -98,7 +136,7 @@ export default function RegisterFormNew() {
 
       // Replace path params with test values
       currentPathParams.forEach(param => {
-        const testValue = prompt(`Path 파라미터 "${param.name}" 테스트 값을 입력하세요:`);
+        const testValue = values[`path_${param.name}`] || '';
         if (testValue) {
           testPath = testPath.replace(`{${param.name}}`, testValue);
         }
@@ -107,7 +145,7 @@ export default function RegisterFormNew() {
       // Build query params
       const queryParamsObj: Record<string, string> = {};
       currentQueryParams.forEach(param => {
-        const testValue = prompt(`Query 파라미터 "${param.name}" 테스트 값을 입력하세요 (선택사항):`);
+        const testValue = values[`query_${param.name}`];
         if (testValue) {
           queryParamsObj[param.name] = testValue;
         }
@@ -132,6 +170,7 @@ export default function RegisterFormNew() {
       setTestResult({ success: false, message: `테스트 실패: ${error.message}` });
     } finally {
       setIsTesting(false);
+      setShowTestForm(false);
     }
   };
 
@@ -186,18 +225,21 @@ export default function RegisterFormNew() {
     setError('');
     setIsSubmitting(true);
 
+    const payload = {
+      slug,
+      name,
+      description: description || undefined,
+      base_url: baseUrl,
+      category: category || undefined,
+      endpoints,
+    };
+    console.log('Submitting payload:', JSON.stringify(payload, null, 2));
+
     const { data, error: fetchError } = await tryCatch(
       apiFetch('/api/register', {
         method: 'POST',
         credentials: 'include',
-        body: JSON.stringify({
-          slug,
-          name,
-          description: description || undefined,
-          base_url: baseUrl,
-          category: category || undefined,
-          endpoints,
-        }),
+        body: JSON.stringify(payload),
       })
     );
 
@@ -209,7 +251,7 @@ export default function RegisterFormNew() {
     }
 
     if (data) {
-      router.push('/my-apis');
+      router.push('/');
     }
   };
 
@@ -355,11 +397,11 @@ export default function RegisterFormNew() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
 
-                  <input
-                    type="text"
+                  <textarea
                     value={currentDescription}
                     onChange={(e) => setCurrentDescription(e.target.value)}
                     placeholder="설명 (선택사항)"
+                    rows={2}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
 
@@ -367,27 +409,154 @@ export default function RegisterFormNew() {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={addQueryParam}
+                      onClick={() => setShowQueryParamForm(true)}
                       className="flex-1 px-3 py-2 text-sm text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200"
                     >
                       + Query 파라미터
                     </button>
                     <button
                       type="button"
-                      onClick={addPathParam}
+                      onClick={() => setShowPathParamForm(true)}
                       className="flex-1 px-3 py-2 text-sm text-green-700 bg-green-100 rounded-md hover:bg-green-200"
                     >
                       + Path 파라미터
                     </button>
                   </div>
 
+                  {/* Query Param Form */}
+                  {showQueryParamForm && (
+                    <div className="p-3 bg-white rounded-lg border-2 border-blue-300 space-y-2">
+                      <h4 className="text-xs font-semibold text-gray-900">Query 파라미터 추가</h4>
+                      <input
+                        type="text"
+                        value={newParamName}
+                        onChange={(e) => setNewParamName(e.target.value)}
+                        placeholder="파라미터 이름 (예: city)"
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <div className="flex gap-2">
+                        <select
+                          value={newParamType}
+                          onChange={(e) => setNewParamType(e.target.value as 'string' | 'number' | 'boolean')}
+                          className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="string">string</option>
+                          <option value="number">number</option>
+                          <option value="boolean">boolean</option>
+                        </select>
+                        <select
+                          value={newParamRequired ? 'true' : 'false'}
+                          onChange={(e) => setNewParamRequired(e.target.value === 'true')}
+                          className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="false">선택</option>
+                          <option value="true">필수</option>
+                        </select>
+                      </div>
+                      <input
+                        type="text"
+                        value={newParamDescription}
+                        onChange={(e) => setNewParamDescription(e.target.value)}
+                        placeholder="설명 (선택사항)"
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={addQueryParam}
+                          disabled={!newParamName.trim()}
+                          className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:bg-gray-400"
+                        >
+                          추가
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowQueryParamForm(false);
+                            setNewParamName('');
+                            setNewParamType('string');
+                            setNewParamRequired(false);
+                            setNewParamDescription('');
+                          }}
+                          className="px-3 py-1.5 text-xs text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Path Param Form */}
+                  {showPathParamForm && (
+                    <div className="p-3 bg-white rounded-lg border-2 border-green-300 space-y-2">
+                      <h4 className="text-xs font-semibold text-gray-900">Path 파라미터 추가</h4>
+                      <input
+                        type="text"
+                        value={newParamName}
+                        onChange={(e) => setNewParamName(e.target.value)}
+                        placeholder="파라미터 이름 (예: id)"
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                      <div className="flex gap-2">
+                        <select
+                          value={newParamType}
+                          onChange={(e) => setNewParamType(e.target.value as 'string' | 'number' | 'boolean')}
+                          className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                        >
+                          <option value="string">string</option>
+                          <option value="number">number</option>
+                          <option value="boolean">boolean</option>
+                        </select>
+                        <select
+                          value={newParamRequired ? 'true' : 'false'}
+                          onChange={(e) => setNewParamRequired(e.target.value === 'true')}
+                          className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                        >
+                          <option value="false">선택</option>
+                          <option value="true">필수</option>
+                        </select>
+                      </div>
+                      <input
+                        type="text"
+                        value={newParamDescription}
+                        onChange={(e) => setNewParamDescription(e.target.value)}
+                        placeholder="설명 (선택사항)"
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={addPathParam}
+                          disabled={!newParamName.trim()}
+                          className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:bg-gray-400"
+                        >
+                          추가
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowPathParamForm(false);
+                            setNewParamName('');
+                            setNewParamType('string');
+                            setNewParamRequired(false);
+                            setNewParamDescription('');
+                          }}
+                          className="px-3 py-1.5 text-xs text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Show added params */}
                   {currentQueryParams.length > 0 && (
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-gray-700">Query 파라미터:</p>
                       {currentQueryParams.map((param, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-xs bg-white px-2 py-1 rounded">
+                        <div key={idx} className="flex items-center justify-between text-xs bg-white px-2 py-1 rounded border border-gray-200">
                           <span className="font-mono">{param.name}</span>
+                          <span className="text-gray-500 text-[10px]">({param.type})</span>
                           <span className="text-gray-600">{param.required ? '필수' : '선택'}</span>
                           <button
                             type="button"
@@ -405,8 +574,9 @@ export default function RegisterFormNew() {
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-gray-700">Path 파라미터:</p>
                       {currentPathParams.map((param, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-xs bg-white px-2 py-1 rounded">
+                        <div key={idx} className="flex items-center justify-between text-xs bg-white px-2 py-1 rounded border border-gray-200">
                           <span className="font-mono">{param.name}</span>
+                          <span className="text-gray-500 text-[10px]">({param.type})</span>
                           <span className="text-gray-600">{param.required ? '필수' : '선택'}</span>
                           <button
                             type="button"
@@ -424,13 +594,81 @@ export default function RegisterFormNew() {
                   <div className="pt-2 border-t border-blue-300">
                     <button
                       type="button"
-                      onClick={testEndpoint}
+                      onClick={initiateTest}
                       disabled={isTesting || !currentPath || !currentName}
                       className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
                       {isTesting ? '테스트 중...' : '엔드포인트 테스트'}
                     </button>
                   </div>
+
+                  {/* Test Form */}
+                  {showTestForm && (
+                    <div className="p-3 bg-white rounded-lg border-2 border-green-300 space-y-2">
+                      <h4 className="text-xs font-semibold text-gray-900">테스트 값 입력</h4>
+
+                      {currentPathParams.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-gray-700">Path 파라미터:</p>
+                          {currentPathParams.map((param) => (
+                            <div key={param.name}>
+                              <label className="block text-xs text-gray-600 mb-1">
+                                {param.name} {param.required && <span className="text-red-500">*</span>}
+                              </label>
+                              <input
+                                type="text"
+                                value={testValues[`path_${param.name}`] || ''}
+                                onChange={(e) => setTestValues({ ...testValues, [`path_${param.name}`]: e.target.value })}
+                                placeholder={param.description || `${param.name} 값`}
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {currentQueryParams.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-gray-700">Query 파라미터:</p>
+                          {currentQueryParams.map((param) => (
+                            <div key={param.name}>
+                              <label className="block text-xs text-gray-600 mb-1">
+                                {param.name} {param.required && <span className="text-red-500">*</span>}
+                              </label>
+                              <input
+                                type="text"
+                                value={testValues[`query_${param.name}`] || ''}
+                                onChange={(e) => setTestValues({ ...testValues, [`query_${param.name}`]: e.target.value })}
+                                placeholder={param.description || `${param.name} 값`}
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => executeTest(testValues)}
+                          disabled={isTesting}
+                          className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:bg-gray-400"
+                        >
+                          {isTesting ? '테스트 중...' : '테스트 실행'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowTestForm(false);
+                            setTestValues({});
+                          }}
+                          className="px-3 py-1.5 text-xs text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Test Result */}
                   {testResult && (

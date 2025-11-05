@@ -22,6 +22,8 @@ const EndpointSchema = t.Object({
   }),
   description: t.Optional(t.String({ description: 'Endpoint description' })),
   parameters: t.Optional(t.Any({ description: 'JSON schema for parameters' })),
+  queryParams: t.Optional(t.Any({ description: 'Query parameters array' })),
+  pathParams: t.Optional(t.Any({ description: 'Path parameters array' })),
   response_example: t.Optional(t.Any({ description: 'Example response' })),
 });
 
@@ -107,12 +109,30 @@ export const apisRoutes = new Elysia()
 
       // Insert endpoints if provided
       if (endpointsList && endpointsList.length > 0) {
+        console.log('Endpoints received:', JSON.stringify(endpointsList, null, 2));
         await db.insert(apiEndpoints).values(
-          endpointsList.map((endpoint: any) => ({
-            api_id: newApi.id,
-            ...endpoint,
-            is_active: true,
-          }))
+          endpointsList.map((endpoint: any) => {
+            // Transform queryParams and pathParams into parameters object
+            const parameters: any = {};
+            if (endpoint.queryParams) {
+              parameters.queryParams = endpoint.queryParams;
+            }
+            if (endpoint.pathParams) {
+              parameters.pathParams = endpoint.pathParams;
+            }
+
+            const result = {
+              api_id: newApi.id,
+              path: endpoint.path,
+              method: endpoint.method,
+              name: endpoint.name,
+              description: endpoint.description,
+              parameters: Object.keys(parameters).length > 0 ? parameters : null,
+              is_active: true,
+            };
+            console.log('Transformed endpoint:', JSON.stringify(result, null, 2));
+            return result;
+          })
         );
       }
 
