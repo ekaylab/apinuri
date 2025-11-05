@@ -65,14 +65,11 @@ const AddEndpointBodySchema = EndpointSchema;
 const UpdateEndpointBodySchema = t.Partial(EndpointSchema);
 
 export const apisRoutes = new Elysia()
-  // Register new API (requires authentication)
+  // Register new API
   .post(
     '/register',
     async ctx => {
-      const { body, user, db, config, status } = ctx as AppContext;
-      if (!user) {
-        return status(401, { error: 'Authentication required' });
-      }
+      const { body, db, config, status } = ctx as AppContext;
       const bodyData = body as any;
       const {
         slug,
@@ -84,9 +81,9 @@ export const apisRoutes = new Elysia()
         endpoints: endpointsList,
       } = bodyData;
 
-      // Check if slug already exists for this user
+      // Check if slug already exists
       const existing = await db.query.apis.findFirst({
-        where: and(eq(apis.user_id, user.id), eq(apis.slug, slug)),
+        where: eq(apis.slug, slug),
       });
 
       if (existing) {
@@ -96,7 +93,7 @@ export const apisRoutes = new Elysia()
       const [newApi] = await db
         .insert(apis)
         .values({
-          user_id: user.id,
+          user_id: null,
           slug,
           name,
           description,
@@ -142,25 +139,18 @@ export const apisRoutes = new Elysia()
   .patch(
     '/:apiId',
     async ctx => {
-      const { params, body, user, db, config, status } =
+      const { params, body, db, config, status } =
         ctx as unknown as AppContext;
-      if (!user) {
-        return status(401, { error: 'Authentication required' });
-      }
 
       const { apiId } = params;
 
-      // Check if API exists and belongs to user
+      // Check if API exists
       const api = await db.query.apis.findFirst({
         where: eq(apis.id, apiId),
       });
 
       if (!api) {
         return status(404, { error: 'API not found' });
-      }
-
-      if (api.user_id !== user.id) {
-        return status(403, { error: 'You do not own this API' });
       }
 
       const bodyData = body as any;
@@ -195,24 +185,17 @@ export const apisRoutes = new Elysia()
   .delete(
     '/:apiId',
     async ctx => {
-      const { params, user, db, status } = ctx as unknown as AppContext;
-      if (!user) {
-        return status(401, { error: 'Authentication required' });
-      }
+      const { params, db, status } = ctx as unknown as AppContext;
 
       const { apiId } = params;
 
-      // Check if API exists and belongs to user
+      // Check if API exists
       const api = await db.query.apis.findFirst({
         where: eq(apis.id, apiId),
       });
 
       if (!api) {
         return status(404, { error: 'API not found' });
-      }
-
-      if (api.user_id !== user.id) {
-        return status(403, { error: 'You do not own this API' });
       }
 
       await db.delete(apis).where(eq(apis.id, apiId));
@@ -225,42 +208,6 @@ export const apisRoutes = new Elysia()
         tags: ['APIs'],
         summary: 'Delete API',
         description: 'Delete API',
-      },
-    }
-  )
-
-  // Get user's APIs (requires authentication)
-  .get(
-    '/my-apis',
-    async ctx => {
-      const { user, db, config, status } = ctx as unknown as AppContext;
-
-      if (!user) {
-        return status(401, { error: 'Authentication required' });
-      }
-
-      const userApis = await db.query.apis.findMany({
-        where: eq(apis.user_id, user.id),
-        with: {
-          endpoints: {
-            where: eq(apiEndpoints.is_active, true),
-          },
-        },
-        orderBy: (apis, { desc }) => [desc(apis.created_at)],
-      });
-
-      const apisWithProxyUrl = userApis.map((api: any) => ({
-        ...api,
-        proxy_url: `${config.BASE_URL}/proxy/${api.slug}`,
-      }));
-
-      return { apis: apisWithProxyUrl };
-    },
-    {
-      detail: {
-        tags: ['APIs'],
-        summary: 'Get my APIs',
-        description: 'Get all APIs owned by the authenticated user',
       },
     }
   )
@@ -337,24 +284,17 @@ export const apisRoutes = new Elysia()
   .post(
     '/:apiId/endpoints',
     async ctx => {
-      const { params, body, user, db, status } = ctx as unknown as AppContext;
-      if (!user) {
-        return status(401, { error: 'Authentication required' });
-      }
+      const { params, body, db, status } = ctx as unknown as AppContext;
 
       const { apiId } = params;
 
-      // Check if API exists and belongs to user
+      // Check if API exists
       const api = await db.query.apis.findFirst({
         where: eq(apis.id, apiId),
       });
 
       if (!api) {
         return status(404, { error: 'API not found' });
-      }
-
-      if (api.user_id !== user.id) {
-        return status(403, { error: 'You do not own this API' });
       }
 
       const bodyData = body as any;
@@ -387,24 +327,17 @@ export const apisRoutes = new Elysia()
   .patch(
     '/:apiId/endpoints/:endpointId',
     async ctx => {
-      const { params, body, user, db, status } = ctx as unknown as AppContext;
-      if (!user) {
-        return status(401, { error: 'Authentication required' });
-      }
+      const { params, body, db, status } = ctx as unknown as AppContext;
 
       const { apiId, endpointId } = params;
 
-      // Check if API exists and belongs to user
+      // Check if API exists
       const api = await db.query.apis.findFirst({
         where: eq(apis.id, apiId),
       });
 
       if (!api) {
         return status(404, { error: 'API not found' });
-      }
-
-      if (api.user_id !== user.id) {
-        return status(403, { error: 'You do not own this API' });
       }
 
       // Check if endpoint exists and belongs to this API
@@ -446,24 +379,17 @@ export const apisRoutes = new Elysia()
   .delete(
     '/:apiId/endpoints/:endpointId',
     async ctx => {
-      const { params, user, db, status } = ctx as unknown as AppContext;
-      if (!user) {
-        return status(401, { error: 'Authentication required' });
-      }
+      const { params, db, status } = ctx as unknown as AppContext;
 
       const { apiId, endpointId } = params;
 
-      // Check if API exists and belongs to user
+      // Check if API exists
       const api = await db.query.apis.findFirst({
         where: eq(apis.id, apiId),
       });
 
       if (!api) {
         return status(404, { error: 'API not found' });
-      }
-
-      if (api.user_id !== user.id) {
-        return status(403, { error: 'You do not own this API' });
       }
 
       // Check if endpoint exists and belongs to this API

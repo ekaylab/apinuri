@@ -1,13 +1,12 @@
 import { pgTable, text, timestamp, uuid, boolean, integer, jsonb, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { users } from './user';
 import { apiKeys } from './auth';
 
-// APIs table - user-registered APIs
+// APIs table - registered APIs
 export const apis = pgTable('apis', {
   id: uuid('id').primaryKey().defaultRandom(),
-  user_id: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  slug: text('slug').notNull(), // URL-friendly identifier
+  user_id: uuid('user_id'), // nullable - no user ownership
+  slug: text('slug').notNull().unique(), // URL-friendly identifier
   name: text('name').notNull(),
   description: text('description'),
   base_url: text('base_url').notNull(), // The actual API endpoint to proxy to
@@ -17,9 +16,7 @@ export const apis = pgTable('apis', {
   headers: jsonb('headers'), // Custom headers for proxying (API keys, etc.)
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => ({
-  userSlugIdx: uniqueIndex('user_slug_idx').on(table.user_id, table.slug),
-}));
+});
 
 // API endpoints table - document each endpoint
 export const apiEndpoints = pgTable('api_endpoints', {
@@ -52,11 +49,7 @@ export const apiRequests = pgTable('api_requests', {
 });
 
 // Relations
-export const apisRelations = relations(apis, ({ one, many }) => ({
-  user: one(users, {
-    fields: [apis.user_id],
-    references: [users.id],
-  }),
+export const apisRelations = relations(apis, ({ many }) => ({
   endpoints: many(apiEndpoints),
   requests: many(apiRequests),
 }));
